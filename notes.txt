@@ -1,0 +1,226 @@
+
+
+  Let f(x) be erf(f) and
+
+ Now, f'(x) = N(x) where N is the normal Gaussian function.
+
+     g(x) be erf^2(f).
+
+wht is g'(x)?   It's d/dx( f(x)^2) = 2 f(x) f'(x) = 2 erf(x) N(x)
+
+
+
+Let f(x) be the interval I(x) which is 1.0 from 0 to 1 and 0 elsewhere, convolved with a normal Gaussian.
+
+Let h be the heaviside function.
+ I(x) = h(x) - h(x-1)
+
+
+ This can be viewed as the difference of two step functions, one at x=0 and one at x=1,
+  i.e.
+
+Let h be the heaviside function.  So
+  f(x) =  h(x) *  N(x)   -   h(x-1) * N(x-1)
+
+Now, h(x) * N(x) == erf(x).  So:
+
+  f(x) = erf(x) - erf(x-1)
+
+
+ - product of f with itself equals (unit interval convolved with Gaussian.)
+
+ - convolution of f with itself equals (sinc times Gaussian)
+
+============================================================
+
+
+
+ Want Gabor-like filters that provide a self-adjoint frame (conjugate is the dual
+ frame), meaning you can just multiply the coefficients the filter functions directly
+ with the conjugates of the filter functions and exactly reconstruct the signal.
+
+  https://en.wikipedia.org/wiki/Frame_(linear_algebra)
+
+
+
+ Suppose we have a continuous band-limited input signal that's sampled at
+ integer values of t (imagine it's at 1Hz; this is without loss of generality).
+ It would be band-limited to the Nyquist frequency which is 0.5.  The
+ angular frequency corresponding to this is 2pi * 0.5 = pi.  For now,
+ assume the signal is complex; later on we'll handle the symmetries involved
+ if it's a real-valued signal.
+
+ The complex angular frequencies range from -pi to pi; view them as going in a
+ circle due to aliasing.  (The point of the circle is that we don't have to
+ treat any frequency band centered at pi/-pi specially just because it is at
+ the edge of the range of allowed frequencies.)
+
+ We are going to split up the signal into N separate streams where N is
+ even; each stream will be sampled at a lower sampling rate of N/2.
+ (i.e. at t=0, t=N/2, t=N, etc.)  Each stream with index k=0..N-1
+ will have a cenral angular-frequency of omega=(2pi k / N), i.e. it will span
+ a complex-frequency band of the input that's centered at omega.
+ Note that this gives us frequencies above the Nyquist, but we are viewing it as
+ circular; it just makes the indexing slightly easier than having k range from
+ -N/2 to N/2-1.
+
+ We are oversampling the signal by a factor of 2 (some oversampling is typically
+ inevitable in these kinds of schemes, if you want good time/frequency locality;
+ and the factor-of-2 is just an arbitrary choice, which we are making concrete
+ now to make the explanation easier to follow).  The width of each of the
+ frequency bands, from top to bottom, is 2pi divided by (N/2) = 4pi/N, and the
+ Nyquist of each of them would be 2pi/N.
+
+ As a thought experiment, suppose all those frequency bands were sharply
+ separated, meaning that we filtered the signal with a rectangular filter
+ that, for center frequency omega, goes from omega - pi/N to omega + pi/N
+ (this is of course wasteful, as we're oversampling by a factor of 2.).
+ We'd be able to get perfect signal reconstruction by just reconstructing
+ each frequency band from the subsampled data, and adding them up.
+ (To get a self-adjoint frame we'd probably have to introduce a factor
+ of 1/sqrt(N/2) or something like that, but that's details.)
+
+ The sharp frequency cutoffs of the filters mentioned above would translate into
+ poor time locality (the sinc function does not go to zero very fast.) As a
+ second stage of our thought experiment, suppose we blur the edges of those
+ rectangular filters by convolving them with a Gaussian with standard deviation
+ sigma = alpha/N, for an alpha we'll choose (where alpha << 2pi to avoid
+ aliasing effects).  Convolution with a Gaussian in the frequency domain is
+ equivalent to multiplication by a Gaussian in the time domain, so that ensures
+ time locality of the filter.  We have the nice property that if you sum up the
+ gains of all the filters, you still get a constant value (1) all around the
+ circle.  There is a problem, though, which is that what we actually want is for
+ the sum of the *squares* of the gains to sum to 1.  There are two ways to see
+ this: (1) when we use the conjugate of the filter to reconstruct the signal, we
+ incur the same gain factor again; and (2) with reference to the theory of
+ frames: in a tight frame with a=b=1, the process of finding those coefficients
+ should preserve the 2-norm, so again it's the sum-of-squares that matters.
+
+ Our way to solve that sum-of-squares issue  mentioned above is quite simple:
+ just take the square root of the frequency response.  Assume we're centered
+ at zero (k=0), for simplicity of explanation.  We get our frequency-response
+ function by: taking a rectangular window from -pi/N to +pi/N; convolving
+ with a Gaussian with standard deviation alpha; taking the square root.
+ The hope is that the square root of this distribution will still, when
+ we take the fourier transform, be quite compact.
+
+
+============
+
+
+  We want a symmetric function F(x)  (viewed as a frequency response, with
+  x an angular frequency) with support only on
+  [ -2 pi.. 2 pi ], satisfying, for 0 <= x < pi:
+        F(x)^2 + F(2pi - x)^2    = 1.
+  ... this implies that F(pi) = sqrt(1/2) and F(0) = 0.
+  Since f(x) is symmetric, this means that we only need to define f from 0..pi.
+
+  We want the Fourier transform of this function to have as tight support as
+  possible.
+  Let F(y) be the fourier transform of x (physically evaluated from, say,
+  -4 to 4).    We'll require it to be bounded by a Gaussian with as small
+  a variance as possible.  (Note: this probably only makes sense when evaluated
+  on a finite time interval, since F(x) has bounded support and I'm not sure that
+  it's possible for f(x) to drop off that fast in the limit.  But this is fine
+ for our purposes.)
+
+  Let the inverse variance be S, which we'll want
+  to make as large as possible.  We know that f(0) will be less than 2 pi,
+  likely less than pi.
+
+    L(y, S) = max(0,  log( f(y) / (2 pi exp( - 0.5 S y^2 )) ))
+
+  If f(y) is bounded by the function  exp( - 0.5 S y^2 ), L(y, S) will be zero
+       for all y.
+  Suppose we are evaluating f(y) at K distinct points y_k for k=0..K-1.
+
+  The loss function will be:
+
+      O = -S + (1/K) sum_k L(y_k, S).
+
+
+=========
+
+ For the physical computation we'll discretize it.  The function f(x), defined for x=0...pi,
+ will be split up into J equal-sized intervals, of size pi/J.  (Say, J=128 or something like that).
+
+ It is the points at  F( pi j / J) for 0 < j < J which we need to define; there are J-2 of
+ them.  ( F(0) and F(pi) are 1 and 1/sqrt(2) respectively. )  Let us write
+ F_j as a shorthand for F(pi j / J)
+
+ Next we consider the inverse fourier transform of F(omega): f(t).  Note: we are
+ using the angular-frequency versions of these equations, which are a little
+ different.  Canonically this would be:
+
+     f(t) = 1/(2pi)  \integral_{omega=-infinity}^{infinity} exp(i omega t) F(omega)
+
+ and because F(omega) is real and symmetric, we can write this using cosines only,
+ and integrating over [0..pi]:
+
+     f(t) = 1/pi  \integral_{omega=0}^{pi} cos(omega t) F(omega)
+
+ We'll define F(omega) for the points
+
+     omega_j = pi j / J,
+ and define:
+     F_j   =   F(omega_j)
+ (we'll explain below specifically how we compute F_j).
+
+ We can approximate the integral as a sum; note, the size of the segmentas is
+ pi/J, so we multiply by that.   Define c_j as 1 if j>0, and 1/2 if
+ j is 0 (because in that cases we only use half the segment).
+
+ We have:
+    f(t) =   1/J  \sum_{j=1}^2J  c_j cos(omega_j t) F_j
+
+    f(t) =   1/J  \sum_{j=1}^2J  c_j cos(pi j t / J) F_j                 (eqn:1)
+
+
+ Because F(omega) only has support for 0 <= omega < 2pi, we can limit the
+ integral  that
+ range.  Note:  we only directly define F(omega) for 0 < omega  < pi;
+ for omega > pi, F(omega) = sqrt(1 - F(2pi - omega)^2).
+
+ Define omega_j as:
+
+    omega_j = pi j / J,
+
+ We define quantities \theta_j for j = 1..J-1; these are the trainable
+ parameters which will define the values of F(omega_j).
+
+  We'll define F_j as follows:
+
+    F_j = abs(cos(\theta_j))  for 0 < j < J, and
+    F_j = abs(sin(\theta_{2J - j})) for J < j < 2J.
+    F_0 = 1
+    F_J = sqrt(2)
+
+ Let there be J intervals per unit time on the time axis.  We evalute the function
+ of time on a finite interval, say -4..4; but f(t) is also symmetric, so we can
+ focus on 0 <= t < 4.
+
+ Let's use the index k for the index on the time axis.  We'll evaluate f(t_j)
+   for 0 <= k < 4J, defining:
+  t_k = k / J.
+
+ Define f_k = f(t_k).  Substituting t_k = k / J, we have:
+
+    f_k =  1/J  \sum_{j=1}^2J  c_j cos(pi j k / J^2) F_j                (eqn:2)
+
+
+ We can compute a matrix of the f_k from the F_j quantities, it becomes a matrix
+ multiplication with the cosines (and c_j) as the elements of the matrix.
+
+ Let this matrix be M_{k,j}.  Its entries corresponds to the coefficients in (eqn:2),
+ so:
+
+ So it's:
+    M_{k,j} = (j == 0 ? 0.5 : 1) *  cos(pi * j * k / J^2).
+
+ Objective function:
+
+  To start with, could minimize sum-of-squares of the higher-numbered f_k;
+  say those with 2J <= k < 4J.
+
+
+
