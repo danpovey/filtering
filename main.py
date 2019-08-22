@@ -60,26 +60,27 @@ def __main__():
 
         f_k = torch.mv(M, F_j[:-1])
 
-        F_penalty_scale = (0.01 * torch.exp(torch.linspace(-10, 0, 2*J + 1, dtype=torch.float64)))
-
         f_penalty_scale = torch.cat(
             (torch.exp(torch.linspace(-20, 0, kM*J, dtype=torch.float64)),
              torch.ones( (kN-kM)*J, dtype=torch.float64 )))
 
         f_penalty = (f_k * f_penalty_scale).abs().sum() * 0.1
-        F_penalty1 = (F_j * F_penalty_scale).abs().sum()
-        # F_penalty1 = 0.0
-        # F_grad is like the deriv w.r.t. frequency.
-        #F_grad = torch.max(F_j[1:] - F_j[:-1],
-        #                   torch.tensor(0.0, dtype=torch.float64))
-        #F_penalty2 = F_grad.sum() * 0.5
-        F_penalty2 = ((F_j[1:] - F_j[:-1]) ** 2).sum() * 0.01
+
+        grad_limit = torch.tensor(2.5 / (2*J), dtype=torch.float64)  #  1/(2J) would be avg grad if it fell from 1 to 0 linearly.  The 2.5 is wiggle room;
+                                                                    # it  trades off how reasonable/smooth the frequency response looks vs.
+                                                                    # how low we can get the f_penalty part of the objective (the part of the time-domain
+                                                                    # filter outside our specified bounds).
+
+        F_penalty1 = torch.max(torch.tensor([0], dtype=torch.float64),
+                               -(F_j[1:] - F_j[:-1]) - grad_limit).sum()
+        F_penalty2 = torch.max(torch.tensor([0], dtype=torch.float64),
+                               (F_j[1:] - F_j[:-1])).sum()
 
         if iter % 100 == 0:
             print("f_penalty={}, F_penalty={}+{}".format(
                     f_penalty, F_penalty1, F_penalty2))
 
-        O = f_penalty + F_penalty1 # + F_penalty2
+        O = f_penalty + F_penalty1 + F_penalty2
         return (F_j, f_k, O)
 
 
@@ -88,11 +89,11 @@ def __main__():
     print(f_k)
     print("O = {}".format(O))
 
-    lrate = 0.01  # Learning rate
-    momentum = 0.8
+    lrate = 0.001  # Learning rate
+    momentum = 0.9
     momentum_grad = torch.zeros(theta_j.shape, dtype=torch.float64)
 
-    for iter in range(2000):
+    for iter in range(4000):
         if iter % 500 == 0:
             lrate *= 0.7
         (F_j, f_k, O) = f_and_O(iter)
@@ -104,7 +105,7 @@ def __main__():
             theta_j -= momentum_grad * lrate
             theta_j.grad.data.zero_()
 
-        if iter in [ 1000, 1500, 1700, 1999 ]:
+        if iter in [ 2000, 3000, 3999 ]:
             plt.plot( (1.0/J)*np.arange(kN*J), f_k.detach())
             plt.plot( (math.pi/J)*np.arange(2*J + 1), F_j.detach())
 

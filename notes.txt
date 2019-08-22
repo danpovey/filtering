@@ -1,124 +1,124 @@
 
 
-  Let f(x) be erf(f) and
-
- Now, f'(x) = N(x) where N is the normal Gaussian function.
-
-     g(x) be erf^2(f).
-
-wht is g'(x)?   It's d/dx( f(x)^2) = 2 f(x) f'(x) = 2 erf(x) N(x)
 
 
-
-Let f(x) be the interval I(x) which is 1.0 from 0 to 1 and 0 elsewhere, convolved with a normal Gaussian.
-
-Let h be the heaviside function.
- I(x) = h(x) - h(x-1)
-
-
- This can be viewed as the difference of two step functions, one at x=0 and one at x=1,
-  i.e.
-
-Let h be the heaviside function.  So
-  f(x) =  h(x) *  N(x)   -   h(x-1) * N(x-1)
-
-Now, h(x) * N(x) == erf(x).  So:
-
-  f(x) = erf(x) - erf(x-1)
-
-
- - product of f with itself equals (unit interval convolved with Gaussian.)
-
- - convolution of f with itself equals (sinc times Gaussian)
-
-============================================================
-
-
-
- Want Gabor-like filters that provide a self-adjoint frame (conjugate is the dual
- frame), meaning you can just multiply the coefficients the filter functions directly
+ Want Gabor-like filters that provide a self-adjoint frame... what a self-adjoint
+ frame means in practice is that after getting the coefficients for each filter,
+ you can just multiply the coefficients the filter functions directly
  with the conjugates of the filter functions and exactly reconstruct the signal.
 
-  https://en.wikipedia.org/wiki/Frame_(linear_algebra)
+ By "gabor-like" what I mean - and this may be totally the wrong terminology -
+ is that each filter will be a real function with limited support times a complex
+ exponential.  The basic idea is to divide the signal into multiple streams,
+ with each stream sampled at a lower sample rate and representing that signal
+ band-limited to a particular part of the frequency spectrum.  To keep the
+ filter functions time-local we can't have sharp cutoffs in the frequency domain,
+ and we'll need to have filters that overlap somewhat in frequency.  The basic
+ idea will be intuitively quite similar to how mel filter-banks are normally
+ constructed, with triangular filters; except that the actual computation is
+ done in the time domain.
 
-
+ For some background that may be relevant and to explain the terminology
+ "self-adjoint frame", see the concept of a "frame" here:
+   https://en.wikipedia.org/wiki/Frame_(linear_algebra)
+ This frame will also be a "tight frame".
 
  Suppose we have a continuous band-limited input signal that's sampled at
  integer values of t (imagine it's at 1Hz; this is without loss of generality).
- It would be band-limited to the Nyquist frequency which is 0.5.  The
- angular frequency corresponding to this is 2pi * 0.5 = pi.  For now,
- assume the signal is complex; later on we'll handle the symmetries involved
- if it's a real-valued signal.
+ It would be band-limited to the Nyquist frequency which is 0.5.  The angular
+ frequency corresponding to the Nyquist is 2pi * 0.5 = pi; we'll be using
+ angular frequencies as it simplifies some of the equations.  For now, assume
+ the signal is complex; later on we'll handle the symmetries that rise if it's
+ real-valued.
 
- The complex angular frequencies range from -pi to pi; view them as going in a
- circle due to aliasing.  (The point of the circle is that we don't have to
- treat any frequency band centered at pi/-pi specially just because it is at
- the edge of the range of allowed frequencies.)
+ The angular frequencies within this band limit range from -pi to pi; view them
+ as going in a circle due to aliasing.  (The point of the circle is to stress
+ that we don't have to treat the frequencies at pi/-pi specially just because
+ they are at the edge of the range of allowed frequencies.)
 
- We are going to split up the signal into N separate streams where N is
- even; each stream will be sampled at a lower sampling rate of N/2.
- (i.e. at t=0, t=N/2, t=N, etc.)  Each stream with index k=0..N-1
- will have a cenral angular-frequency of omega=(2pi k / N), i.e. it will span
- a complex-frequency band of the input that's centered at omega.
- Note that this gives us frequencies above the Nyquist, but we are viewing it as
- circular; it just makes the indexing slightly easier than having k range from
- -N/2 to N/2-1.
+ We are going to split up the signal into N separate streams where N is even;
+ each stream will be sampled every N/2 seconds. (Remember: we assumed, without loss
+ of generality, that the original signal was sampled at 1Hz).  Each stream with
+ index k=0..N-1 will have a central angular-frequency of omega=(2pi k / N),
+ i.e. it will span a complex-frequency band of the input that's centered at
+ omega.  Note that this gives us frequencies above the Nyquist, but we are
+ viewing it as circular; this just makes the indexing slightly easier than
+ having k range from -N/2 to N/2-1.
 
  We are oversampling the signal by a factor of 2 (some oversampling is typically
- inevitable in these kinds of schemes, if you want good time/frequency locality;
- and the factor-of-2 is just an arbitrary choice, which we are making concrete
- now to make the explanation easier to follow).  The width of each of the
- frequency bands, from top to bottom, is 2pi divided by (N/2) = 4pi/N, and the
- Nyquist of each of them would be 2pi/N.
+ inevitable in these kinds of schemes, if you want good time/frequency locality);
+ the factor of 2 oversampling is just an arbitrary choice, which we are
+ making concrete for simplicity.  The width of each of the frequency bands, from
+ top to bottom, is 2pi divided by (N/2) = 4pi/N, and the Nyquist of each of them
+ would be 2pi/N.  As a special case, if N == 2 this means that we split the
+ signal up into two halves with the same sampling rate, i.e. the sampling rate
+ doesn't change.
 
- As a thought experiment, suppose all those frequency bands were sharply
- separated, meaning that we filtered the signal with a rectangular filter
- that, for center frequency omega, goes from omega - pi/N to omega + pi/N
- (this is of course wasteful, as we're oversampling by a factor of 2.).
- We'd be able to get perfect signal reconstruction by just reconstructing
- each frequency band from the subsampled data, and adding them up.
- (To get a self-adjoint frame we'd probably have to introduce a factor
- of 1/sqrt(N/2) or something like that, but that's details.)
+ For the frequency band with k=0 we'll essentially be convolving the time-domain
+ signal with a symmetric filter function with limited support in.  We want this
+ filter function to have limited support in the frequency domain as well.
+ (Technically doing both of these as the same time is impossible, but we can get
+ close.)
 
- The sharp frequency cutoffs of the filters mentioned above would translate into
- poor time locality (the sinc function does not go to zero very fast.) As a
- second stage of our thought experiment, suppose we blur the edges of those
- rectangular filters by convolving them with a Gaussian with standard deviation
- sigma = alpha/N, for an alpha we'll choose (where alpha << 2pi to avoid
- aliasing effects).  Convolution with a Gaussian in the frequency domain is
- equivalent to multiplication by a Gaussian in the time domain, so that ensures
- time locality of the filter.  We have the nice property that if you sum up the
- gains of all the filters, you still get a constant value (1) all around the
- circle.  There is a problem, though, which is that what we actually want is for
- the sum of the *squares* of the gains to sum to 1.  There are two ways to see
- this: (1) when we use the conjugate of the filter to reconstruct the signal, we
- incur the same gain factor again; and (2) with reference to the theory of
- frames: in a tight frame with a=b=1, the process of finding those coefficients
- should preserve the 2-norm, so again it's the sum-of-squares that matters.
+ The constraint we want to satisfy is that when we multiply by the shifted
+ filter functions times the complex exponentials required to give us the
+ center frequences of the N separate streams, we get back the original
+ signal energy for any angular frequency in [-pi..pi].  This becomes a constraint
+ on the frequency response of the filter functions.
 
- Our way to solve that sum-of-squares issue  mentioned above is quite simple:
- just take the square root of the frequency response.  Assume we're centered
- at zero (k=0), for simplicity of explanation.  We get our frequency-response
- function by: taking a rectangular window from -pi/N to +pi/N; convolving
- with a Gaussian with standard deviation alpha; taking the square root.
- The hope is that the square root of this distribution will still, when
- we take the fourier transform, be quite compact.
+ We'll define the canonical filter as a function F(omega) with support on
+ -pi..pi.  (We'll scale down on the frequency axis by N/2 to get the actual
+ filters).  We'll analyze the response of this system in terms of pure
+ sinusoids (it's all linear and the sinusoids are a complete basis, so this
+ is sufficient).  Being a little bit approximate about constant factors:
+ when we convolve the filter with that sinusoid at frequency omega, we'll
+ get a signal with amplitude F(omega) and of course the same frequency and
+ phase; when we reconstruct using the same filter functions, we again
+ incur the factor of F(omega), so the roundtrip gain is F(omega)^2.
+ Each frequency, in general, will have nonzero response from two of these
+ filters because they overlap.  To get unit gain, we need the F(omega)^2
+ values to sum up to 1 when appropriately shifted in frequency space.
+ Made concrete, and remembering that F(omega) is defined on [-pi..pi] and
+ is symmetric: this is equivalent to saying,
+    for 0 <= omega <= pi/2,
+
+       F(omega)^2 + F(pi - omega)^2 = 1.
+
+ This would be satisfied, for instance, by defining  F(omega) = sqrt(1 - omega/pi).
+ We need more than that, though: we need F(omega) to be such that when we
+ take the inverse Fourier transform of F(.) and get the time-domain filter f(t),
+ that function f(t) has very small values outside a certain specified region (say,
+ -4 <= t <= 4).  That will allow us to compute it efficiently.
+
+ (possibly some relevant background here:
+  http://www.its.caltech.edu/~matilde/GaborLocalization.pdf)
 
 
 ============
 
 
-  We want a symmetric function F(x)  (viewed as a frequency response, with
-  x an angular frequency) with support only on
-  [ -2 pi.. 2 pi ], satisfying, for 0 <= x < pi:
-        F(x)^2 + F(2pi - x)^2    = 1.
-  ... this implies that F(pi) = sqrt(1/2) and F(0) = 0.
-  Since f(x) is symmetric, this means that we only need to define f from 0..pi.
+  The canonical frequency response will be a symmetric function F(omega),
+  defined on -pi <= omega <= pi.  We will F(pi) = 0 to avoid problems
+  with phase at the Nyquist; this implies F(0) = 1.
+
+  As mentioned above, to avoid any variation in response of the
+  system at different frequencies we will require,  for 0 <= omega <= pi/2,
+
+      F(omega)^2 + F(pi - omega)^2 = 1.
+
+  We'll also require F(omega) >= 0, to avoid any phase flipping which
+  might lead to strange effects.   Note: the above implies that F(pi/2) = sqrt(2).
+  We will numerically optimize F(omega) to minimize the function values outside
+  a specified time window.  Because of the symmetries above, we only need to
+  optimize F(omega) for 0 < omega < pi/2; these values define the remaining values.
+
 
   We want the Fourier transform of this function to have as tight support as
   possible.
   Let F(y) be the fourier transform of x (physically evaluated from, say,
-  -4 to 4).    We'll require it to be bounded by a Gaussian with as small
+  -16 to +16).
+
+  We'll require it to be bounded by a Gaussian with as small
   a variance as possible.  (Note: this probably only makes sense when evaluated
   on a finite time interval, since F(x) has bounded support and I'm not sure that
   it's possible for f(x) to drop off that fast in the limit.  But this is fine
@@ -215,7 +215,7 @@ Now, h(x) * N(x) == erf(x).  So:
  so:
 
  So it's:
-    M_{k,j} = (j == 0 ? 0.5 : 1) *  cos(pi * j * k / J^2).
+    M_{k,j} = 1/J * (j == 0 ? 0.5 : 1) *  cos(pi * j * k / J^2).
 
  Objective function:
 
