@@ -66,8 +66,7 @@ def get_objf(F, iter, do_print=False):
     # penalty3 checks the function starts at 1
     penalty3 = (F[0] - torch.tensor([1.0])).abs().sum() * 50.0
 
-    # penalty4 checks the function is 0 at pi
-    penalty4 = F[D].abs() * 50.0
+    penalty4 = 0.0
 
     # This is like the second penalty but starting from 2*D and with a higher
     # constant-- to strongly penalize high-freq energy.
@@ -83,9 +82,8 @@ def get_objf(F, iter, do_print=False):
 
     # penalty8 checks the function is less than 0.5 at 2.0.  Trying to
     # coax it to where I know it should go.
-    #
     i = int(D * 2.0 / math.pi)
-    penalty8 = torch.max(torch.tensor([0.0]), F[i] - torch.tensor([0.5])).sum() * 50.0
+    penalty8 = torch.max(torch.tensor([0.0]), F[i] - torch.tensor([0.5])).sum() * 0.0
 
 
 
@@ -129,7 +127,7 @@ def __main__():
         f_extended = torch.cat((torch.flip(f[1:], dims=[0]), f))
         f_deriv = f_extended[1:] - f_extended[:-1]
         f_deriv2 = f_deriv[1:] - f_deriv[:-1]
-        f_penalty1 = torch.sqrt( ((f_deriv2 ** 2).sum()   + 10.0 * (f_deriv2[:D//2] ** 2).sum()) * 0.01 * D * D + 0.001)
+        f_penalty1 = torch.sqrt( ((f_deriv2 ** 2).sum()   + 10.0 * (f_deriv2[:D//2] ** 2).sum()) * 0.002 * D * D + 0.001)
 
 
         # make sure that from t=0 to t=1.0, f(t) is non-increasing.  This is
