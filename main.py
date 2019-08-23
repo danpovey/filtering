@@ -75,7 +75,7 @@ def get_objf(F, iter, do_print=False):
 
     # the third penalty ensures that we don't have negative gains,
     # which would lead to an inconvenient phase flip.
-    penalty6 = torch.max(torch.tensor([0.0]), -F).sum()
+    penalty6 = torch.max(torch.tensor([0.0]), -F).sum() * 10.0
 
     # the 7th penalty tries to ensure that F is nondecreasing, i.e.
     # the gain decreases as the frequency gets further from the origin.
@@ -108,31 +108,39 @@ def get_objf(F, iter, do_print=False):
 
 def __main__():
     torch.set_default_dtype(torch.float64)
-    f = torch.ones((D), requires_grad = True)
+    f = torch.linspace(1.0, 0, D, requires_grad = True)
 
     M = get_fourier_matrix()
     print("M = {}".format(M))
 
-    lrate = 0.001  # Learning rate
-    momentum = 0.9
+    lrate = 0.0001  # Learning rate
+    momentum = 0.95
     momentum_grad = torch.zeros(f.shape, dtype=torch.float64)
 
-    for iter in range(20000):
-        if iter % 1000 == 0:
+    for iter in range(10000):
+        if iter % 500 == 0:
             lrate *= 0.5
 
         F = torch.mv(M, f)
         O = get_objf(F, iter, (iter % 100 == 0))
 
-        # Put a penalty on the second derivative of f.
+        # Put a penalty on the second derivative of f, for the part further
+        # from th eorigin.
         f_extended = torch.cat((torch.flip(f[1:], dims=[0]), f))
         f_deriv = f_extended[1:] - f_extended[:-1]
         f_deriv2 = f_deriv[1:] - f_deriv[:-1]
-        f_penalty = torch.sqrt((f_deriv2 ** 2).sum() * 0.0001 * D * D + 0.01)
+        f_penalty1 = torch.sqrt( ((f_deriv2 ** 2).sum()   + 10.0 * (f_deriv2[:D//2] ** 2).sum()) * 0.01 * D * D + 0.001)
+
+
+        # make sure that from t=0 to t=1.0, f(t) is non-increasing.  This is
+        # to avoid a bad local optimum that I've seen come up.
+        f_deriv_part = f_deriv[1:D//S] - f_deriv[0:D//S-1]
+        f_penalty2 = torch.max(torch.tensor([0.0]), f_deriv_part).sum() * 50.0
+
 
         if (iter % 100 == 0):
-            print("f_penalty = {}".format(f_penalty))
-        O = O + f_penalty
+            print("f_penalty = {} + {} = {}".format(f_penalty1, f_penalty2, f_penalty1+f_penalty2))
+        O = O + f_penalty1 + f_penalty2
 
 
         O.backward()
@@ -141,7 +149,7 @@ def __main__():
             f -= momentum_grad * lrate
             f.grad.data.zero_()
 
-        if iter in [ 2000, 3000, 5000, 9999 ]:
+        if iter in [ 9999 ]: #[ 2000, 3000, 5000, 9999 ]:
             plt.plot( (S * 1.0 / D) * np.arange(D), f.detach())
             plt.plot( (math.pi/D) * np.arange(D*T), F.detach())
 
