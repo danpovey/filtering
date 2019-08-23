@@ -57,8 +57,8 @@ def get_objf(F, iter, do_print=False):
     # This first penalty term makes sure that after taking into account
     # the contributions from the overlapping frequency bands, the total gain
     # for each frequency is 1.
-    penalty1 = (((F[0:D//2]**2  + torch.flip(F[D//2:D], dims=[0])**2) -
-                torch.tensor([1.0])) ** 2).sum()
+    penalty1 = ((F[0:D//2]**2  + torch.flip(F[D//2:D], dims=[0])**2) -
+                torch.tensor([1.0])).abs().sum()
     # the second penalty ensures that we have no energy outside the desired
     # frequency range.
     penalty2 = (F[D:]).abs().sum() * 2.0
@@ -66,24 +66,17 @@ def get_objf(F, iter, do_print=False):
     # penalty3 checks the function starts at 1
     penalty3 = (F[0] - torch.tensor([1.0])).abs().sum() * 50.0
 
-    penalty4 = 0.0
-
     # This is like the second penalty but starting from 2*D and with a higher
     # constant-- to strongly penalize high-freq energy.
-    penalty5 = (F[2*D:]).abs().sum()
+    penalty4 = (F[2*D:]).abs().sum()
 
     # the third penalty ensures that we don't have negative gains,
     # which would lead to an inconvenient phase flip.
-    penalty6 = torch.max(torch.tensor([0.0]), -F).sum() * 10.0
+    penalty5 = torch.max(torch.tensor([0.0]), -F).sum() * 10.0
 
-    # the 7th penalty tries to ensure that F is nondecreasing, i.e.
+    # the 5th penalty tries to ensure that F is nondecreasing, i.e.
     # the gain decreases as the frequency gets further from the origin.
-    penalty7 = torch.max(torch.tensor([0.0]), F[1:] - F[:-1]).sum() * 10.0
-
-    # penalty8 checks the function is less than 0.5 at 2.0.  Trying to
-    # coax it to where I know it should go.
-    i = int(D * 2.0 / math.pi)
-    penalty8 = torch.max(torch.tensor([0.0]), F[i] - torch.tensor([0.5])).sum() * 0.0
+    penalty6 = torch.max(torch.tensor([0.0]), F[1:] - F[:-1]).sum() * 10.0
 
 
 
@@ -98,10 +91,10 @@ def get_objf(F, iter, do_print=False):
 #                                (F_j[1:] - F_j[:-1])).sum()
 
 
-    loss = penalty1 + penalty2 + penalty3 + penalty4 + penalty5 + penalty6 + penalty7 + penalty8
+    loss = penalty1 + penalty2 + penalty3 + penalty4 + penalty5 + penalty6
     if do_print:
-        print("Iter {}: loss = {} = 1:{} + 2:{} + 3:{} + 4:{} + 5:{} + 6:{} + 7:{} + 8:{}".format(
-                iter, loss, penalty1, penalty2, penalty3, penalty4, penalty5, penalty6, penalty7, penalty8))
+        print("Iter {}: loss = {} = 1:{} + 2:{} + 3:{} + 4:{} + 5:{} + 6:{}".format(
+                iter, loss, penalty1, penalty2, penalty3, penalty4, penalty5, penalty6))
     return loss
 
 def __main__():
