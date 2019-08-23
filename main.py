@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
+import filter_utils.filters as filters
 
 
 
@@ -97,9 +98,47 @@ def get_objf(F, iter, do_print=False):
                 iter, loss, penalty1, penalty2, penalty3, penalty4, penalty5, penalty6))
     return loss
 
+
+
+
+def get_function_approx(x):
+    scale = 1.466 # value at x=0
+    first_zero_crossing = 1.72
+    stddev = 2.95   # standard deviation of gaussian we multiply by
+    if x == 0:
+        return scale
+    else:
+        sinc = math.sin(x * math.pi / first_zero_crossing) * (scale / (math.pi / first_zero_crossing)) / x
+        return sinc * math.exp(- x*x*(stddev ** -2))
+
+def get_f_approx():
+    x_axis = [ (S * 1.0 / D) * x for x in range(D) ]
+    return torch.tensor( [ get_function_approx(x) for x in x_axis ] )
+
+
 def __main__():
     torch.set_default_dtype(torch.float64)
-    f = torch.linspace(1.0, 0, D, requires_grad = True)
+
+
+    # We don't want the time-domain filter to have energy above an angular
+    # frequency of pi, which corresponds to a frequency of 0.5.  The sampling
+    # rate in the time domain (the f_t values) is D / S, so the relative
+    # frequency of the cutoff is 0.5 / (D / S) = 0.5 S / D.  (This would be the
+    # arg to filter_utils.filters.high_pass_filter).  This will make an
+    # inconveniently wide filter, though.  We are already penalizing these high
+    # energies explicitly in the fourier space, up to T * pi, so we only really
+    # need to penalize in the time domain for frequencies above this; that means
+    # we can boost up the relative cutoff frequency by a factor of T, giving
+    # us a cutoff frequency of 0.5 S T / D.
+    (f, filter_width) = filters.high_pass_filter(0.5 * S * T / D, num_zeros = 5)
+    filt = torch.tensor(f)  # convert from Numpy into Torch format.
+
+
+    # f_approx is a hand-tuned function very close to the 'f' we want.  The
+    # optimization gets stuck in nasty local minima, and we know where we are
+    # going, so we use this as a constraint.
+    f_approx = get_f_approx()
+    f = f_approx.clone().detach().requires_grad_(True)
 
     M = get_fourier_matrix()
     print("M = {}".format(M))
@@ -115,24 +154,20 @@ def __main__():
         F = torch.mv(M, f)
         O = get_objf(F, iter, (iter % 100 == 0))
 
-        # Put a penalty on the second derivative of f, for the part further
-        # from th eorigin.
-        f_extended = torch.cat((torch.flip(f[1:], dims=[0]), f))
-        f_deriv = f_extended[1:] - f_extended[:-1]
-        f_deriv2 = f_deriv[1:] - f_deriv[:-1]
-        f_penalty1 = torch.sqrt( ((f_deriv2 ** 2).sum()   + 10.0 * (f_deriv2[:D//2] ** 2).sum()) * 0.002 * D * D + 0.001)
 
+        max_error = 0.01  # f should stay at least this close to f_approx.
+        f_penalty1 = torch.max(torch.tensor([0.0]), torch.abs(f - f_approx) - 0.01).sum() * 5.0
 
-        # make sure that from t=0 to t=1.0, f(t) is non-increasing.  This is
-        # to avoid a bad local optimum that I've seen come up.
-        f_deriv_part = f_deriv[1:D//S] - f_deriv[0:D//S-1]
-        f_penalty2 = torch.max(torch.tensor([0.0]), f_deriv_part).sum() * 50.0
+        f_extended = torch.cat((torch.flip(f, dims=[0]), f))
+        f_extended_highpassed = torch.nn.functional.conv1d(f_extended.unsqueeze(0).unsqueeze(0),
+                                                           filt.unsqueeze(0).unsqueeze(0), padding=filter_width)
+        f_extended_highpassed = f_extended_highpassed.squeeze(0).squeeze(0)
+        f_penalty2 = f_extended_highpassed.abs().sum()
 
 
         if (iter % 100 == 0):
-            print("f_penalty = {} + {} = {}".format(f_penalty1, f_penalty2, f_penalty1+f_penalty2))
+            print("f_penalty = {}+{}".format(f_penalty1, f_penalty2))
         O = O + f_penalty1 + f_penalty2
-
 
         O.backward()
         with torch.no_grad():
