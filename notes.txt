@@ -387,3 +387,14 @@ weights on g_{-1} and g_0 will be:
 
 
 
+===
+  Extrema and zero crossings of functions:
+
+
+ (x,y):
+  0,1.462
+  1.71,0
+
+
+
+

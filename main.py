@@ -145,7 +145,10 @@ def __main__():
             plt.plot( (math.pi/D) * np.arange(D*T), F.detach())
 
     plt.ylabel('f_k, F_k')
+    plt.grid()
     plt.show()
+    print("F = ", repr(F))
+    print("f = ", repr(f))
 
 
 
