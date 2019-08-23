@@ -213,22 +213,18 @@ def get_sinc_function(first_zero_crossing, scale, xaxis_warp, x):
 
 def get_function_approx(x):
     scale = 1.466 # value at x=0
-    first_zero_crossing = 1.72
-    stddev = 2.95   # standard deviation of gaussian we multiply by
+    first_zero_crossing = 1.713
+    stddev = 3.1   # standard deviation of gaussian we multiply by
     if x == 0:
         return scale
     else:
         sinc = math.sin(x * math.pi / first_zero_crossing) * (scale / (math.pi / first_zero_crossing)) / x
-        return sinc * math.exp(- x*x*(stddev ** -2))
+        return sinc * math.exp(- x*x*(stddev ** -2) - 0.1*x*x*x*x*(stddev ** -4) )
 
 def __main__():
     x_axis = (S * 1.0 / D) * np.arange(D)
     plt.plot( x_axis, f)
 
-
-    stddev = 2.95
-    #gauss_scale = np.array([ math.exp(- x*x*(stddev ** -2)) for x in x_axis])
-    #sinc_function = np.array([ get_sinc_function(1.72, 1.466, 0.00, x) for x in x_axis])
 
     approx = np.array([ get_function_approx(x) for x in x_axis])  # gauss_scale * sinc_function
 
@@ -243,7 +239,7 @@ def __main__():
     print("Relative error is ", rel_err, ", max error is ", np.max(np.abs(approx - f)))
 
     plt.plot(x_axis, 100.0 * (approx - f))
-
+    plt.ylim((-2,2))
     plt.ylabel('f')
     plt.grid()
     plt.show()
