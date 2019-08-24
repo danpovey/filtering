@@ -1,0 +1,221 @@
+
+
+
+
+ Want Gabor-like filters that provide a self-adjoint frame... what a self-adjoint
+ frame means in practice is that after getting the coefficients for each filter,
+ you can just multiply the coefficients the filter functions directly
+ with the conjugates of the filter functions and exactly reconstruct the signal.
+
+ By "gabor-like" what I mean - and this may be totally the wrong terminology -
+ is that each filter will be a real function with limited support times a complex
+ exponential.  The basic idea is to divide the signal into multiple streams,
+ with each stream sampled at a lower sample rate and representing that signal
+ band-limited to a particular part of the frequency spectrum.  To keep the
+ filter functions time-local we can't have sharp cutoffs in the frequency domain,
+ and we'll need to have filters that overlap somewhat in frequency.  The basic
+ idea will be intuitively quite similar to how mel filter-banks are normally
+ constructed, with triangular filters; except that the actual computation is
+ done in the time domain.
+
+ For some background that may be relevant and to explain the terminology
+ "self-adjoint frame", see the concept of a "frame" here:
+   https://en.wikipedia.org/wiki/Frame_(linear_algebra)
+ This frame will also be a "tight frame".
+
+ Suppose we have a continuous band-limited input signal that's sampled at
+ integer values of t (imagine it's at 1Hz; this is without loss of generality).
+ It would be band-limited to the Nyquist frequency which is 0.5.  The angular
+ frequency corresponding to the Nyquist is 2pi * 0.5 = pi; we'll be using
+ angular frequencies as it simplifies some of the equations.  For now, assume
+ the signal is complex; later on we'll handle the symmetries that rise if it's
+ real-valued.
+
+ The angular frequencies within this band range from -pi to pi; view them
+ as going in a circle due to aliasing.  (The point of the circle is to stress
+ that we don't have to treat the frequencies at pi/-pi specially just because
+ they are at the edge of the range of allowed frequencies.)
+
+ We are going to split up the signal into N separate streams where N is even;
+ each stream will be sampled every N/2 seconds. (Remember: we assumed, without loss
+ of generality, that the original signal was sampled at 1Hz).  Each stream with
+ index k=0..N-1 will have a central angular-frequency of omega=(2pi k / N),
+ i.e. it will span a complex-frequency band of the input that's centered at
+ omega.  Note that this gives us frequencies above the Nyquist, but we are
+ viewing it as circular; this just makes the indexing slightly easier than
+ having k range from -N/2 to N/2-1.
+
+ We are oversampling the signal by a factor of 2 (some oversampling is typically
+ inevitable in these kinds of schemes, if you want good time/frequency locality);
+ the factor of 2 oversampling is just an arbitrary choice, which we are
+ making concrete for simplicity.  The width of each of the frequency bands, from
+ top to bottom, is 2pi divided by (N/2) = 4pi/N, and the Nyquist of each of them
+ would be 2pi/N.  As a special case, if N == 2 this means that we split the
+ signal up into two halves with the same sampling rate, i.e. the sampling rate
+ doesn't change.
+
+ For the frequency band with k=0 we'll essentially be convolving the time-domain
+ signal with a symmetric filter function with limited support in.  We want this
+ filter function to have limited support in the frequency domain as well.
+ (Technically doing both of these as the same time is impossible, but we can get
+ close.)
+
+ The constraint we want to satisfy is that when we multiply by the shifted
+ filter functions times the complex exponentials required to give us the
+ center frequences of the N separate streams, we get back the original
+ signal energy for any angular frequency in [-pi..pi].  This becomes a constraint
+ on the frequency response of the filter functions.
+
+ We'll define the canonical filter as a function F(omega) with support on
+ -pi..pi.  (We'll scale down on the frequency axis by N/2 to get the actual
+ filters).  We'll analyze the response of this system in terms of pure
+ sinusoids (it's all linear and the sinusoids are a complete basis, so this
+ is sufficient).  Being a little bit approximate about constant factors:
+ when we convolve the filter with that sinusoid at frequency omega, we'll
+ get a signal with amplitude F(omega) and of course the same frequency and
+ phase; when we reconstruct using the same filter functions, we again
+ incur the factor of F(omega), so the roundtrip gain is F(omega)^2.
+ Each frequency, in general, will have nonzero response from two of these
+ filters because they overlap.  To get unit gain, we need the F(omega)^2
+ values to sum up to 1 when appropriately shifted in frequency space.
+ Made concrete, and remembering that F(omega) is defined on [-pi..pi] and
+ is symmetric: this is equivalent to saying,
+    for 0 <= omega <= pi/2,
+
+       F(omega)^2 + F(pi - omega)^2 = 1.
+
+ This would be satisfied, for instance, by defining  F(omega) = sqrt(1 - omega/pi).
+ We need more than that, though: we need F(omega) to be such that when we
+ take the inverse Fourier transform of F(.) and get the time-domain filter f(t),
+ that function f(t) has very small values outside a certain specified region (say,
+ -4 <= t <= 4).  That will allow us to compute it efficiently.
+
+ (possibly some relevant background here:
+  http://www.its.caltech.edu/~matilde/GaborLocalization.pdf)
+
+
+============
+
+
+  The canonical frequency response will be a symmetric function F(omega),
+  defined on -pi <= omega <= pi.  We will F(pi) = 0 to avoid problems
+  with phase at the Nyquist; this implies F(0) = 1.
+
+  As mentioned above, to avoid any variation in response of the
+  system at different frequencies we will require,  for 0 <= omega <= pi/2,
+
+      F(omega)^2 + F(pi - omega)^2 = 1.
+
+  We'll also require F(omega) >= 0, to avoid any phase flipping which
+  might lead to strange effects.   Note: the above implies that F(pi/2) = sqrt(2).
+  We will numerically optimize F(omega) to minimize the function values outside
+  a specified time window.  Because of the symmetries above, we only need to
+  optimize F(omega) for 0 < omega < pi/2; these values define the remaining values.
+
+
+  First, just a note on which version of the Fourier transform we are using.
+  We'll be using the angular-frequency version of the Fourier transform, with
+  the sqrt(2 pi) term that ensures symmetry between the Fourier transform and
+  its inversion (this will make it more straightforward to get an approximately
+  self-adjoint basis).  So:
+
+    F(omega)  =   1/sqrt(2\pi)   \integral_{-infty}^{+infty} f(t) e^{-i \omega t } dt
+    f(t)  =   1/sqrt(2\pi)  \integral_{-\infty}^{+infty}  F(omega) e^{i t \omega}  d\omega
+
+  We'll define in advance the extent of time support of f(t): say, -S to S where
+  S might be, say, 8.  (We'll make S an integer for convenience).  We'll be optimizing
+  f(t) numerically.
+
+  f(t) and F(omega) will both be symmetric (because we want the phase
+  unchanged), and of course real, so we can use a one-sided integral for
+  F(omega), replace the complex exponential with a cosine, and multiply by 2:
+
+    F(omega)  =   sqrt(2/\pi)   \integral_0^{+infty} f(t) cos(\omega t) dt     (eqn:1)
+
+  We'll be evaluating F(omega) for omega = 0 ... T\pi, for another integer T
+  that we define in advance (has to be large enough so that we can penalize
+  high-frequency noise in f(t)).  The framework is that we put penalties on
+  F(omega) to ensure the various properties that we want, such as:
+
+  CONSTRAINTS ON F:
+    - F(omega)^2 + F(pi - omega)^2 = 1.
+    - F(0) = 1
+    - F(omega) = 0 for omega >= pi
+    - F(omega) should monotonically decrease and its derivative should nowhere
+           be too large (just to avoid some nasty-looking ringing effects and
+           a sharp cutoff at pi/2 which could cause problems as we can't tell
+           the phase at the Nyquist.
+
+   We'll be evaluating both f(t) and F(omega) at discrete points.  Suppose there
+   are D equally spaced points per unit on the x-axis of f(t), and also D
+   equally spaced points in each interval of size \pi in F(omega); there are T
+   such intervals (e.g. T = 4; we need to make T high enough to prevent high
+   frequency ringing, which would not be properly penalized if T was too small.
+
+   We'll define f(t) at the points 0, 1/D, 2/D, ... (SD-1) / D; and
+   we'll evalute F(omega) at the points 0, \pi/D, 2\pi/D, ... (TD - 1)\pi / D.
+
+        t_d =  d / D    (for  0 <= d < S D)
+      \omega_k = k \pi / D     (for 0 <= k < T D)
+
+  Define (as a shorthand notation):
+      f_d  ==  f(t_d) == f(d / D)
+  .. the values f_d will be learnable parameters in our formulation, i.e. we are
+  learning the vector of f_d from d = 0...SD.  Note: implicitly, f_{-d} == f_d,
+  by symmetry, and for d >= SD, f_d would be zero.
+
+  Also, define
+     F_k = F(\omega_k) = F(k \pi / D),
+  for 0 <= k < T D.
+  We'll be evaluating this by approximating the integral as a sum over D
+  separate regions.
+
+
+  Referring back to (eqn:1), and using the notes above, we will approximate the integral
+  expression that gives F(omega) as a sum.  We'll be evaluating this for the following points,
+  for 0 <= k < T D:
+
+    F_k = F(\omega_k) = F(k \pi / D); and also remember, t_d = d / D.
+
+ So, for 0 <= k < T D:
+
+   F_k = sqrt(2/\pi) * 1/D *   \sum_{d=0}^{SD-1} w_d  f_d cos(k d \pi / D^2)
+
+ where w_d = 0.5 if d is 0 and 1.0 otherwise.
+
+ f_d (for 0 <= d < SD) is the thing we're optimizing; F_k is the thing on which
+ we want to impose various penalties and constraints (to get the frequency
+ response we want); and all the other terms in there become the elements of a
+ matrix.  The new factor 1/D is from the width of the discretized regions.
+
+ Suppose the matrix is M with elements M_{kd}; we'd have:
+
+    M_{kd} =  sqrt(2/\pi) * 1/D *  w_d cos(k d \pi / D^2).
+
+ We'll compute F = M f, where f is the vector of f_d.
+
+ Search above for CONSTRAINTS ON F for the constraints we want to impose on F.
+ It's mostly fairly obvious how we'd impose these.  The constraint:
+   F(omega)^2 + F(pi - omega)^2 = 1
+ amounts to ensuring that, for 0 < k <= D/2,
+    F_k^2 + F_{D-k}^2 == 1 (approximately; we'll do both by putting a penalty on their
+ l2 norm.
+
+ To avoid high-frequency energy the signal f that is not appropriately penalized
+ by the constraints on F_k (because we only evaluate it up to a finite
+ frequency), we also penalize the l2 norm of a highpassed version of f, where the
+ high-pass filter is chosen with a cutoff corresponding to the angular frequency
+ of T pi (this is the highest frequency we explicitly penalize)... in regular
+ non-angular frequency, this would be T/2 (divide by 2 pi).
+
+ Also, to avoid the optimization reaching bad local optima, we force f_t to be
+ close to a functional form that we found is a close approximation to the
+ learned time-domain filter; this is a sinc function times a Gaussian (see the
+ code for details), and it's correct to over 99% in l1 integral with maximum
+ absolute deviation less than 0.01.
+
+
+
+
+
+
