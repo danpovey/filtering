@@ -10,8 +10,8 @@ import filter_utils.filters as filters
 
 
 
-D = 512   # Defines how many discrete points we use in our approximations
-S = 8      # Time support of the canonical filter function would be [-S..S]... in
+D = 512    # Defines how many discrete points we use in our approximations
+S = 6      # Time support of the canonical filter function would be [-S..S]... in
            # the frequency domain, almost all the energy should be in [-pi..pi].
 T = 4      # how many multiples of pi we compute the freq response for
 
@@ -23,14 +23,7 @@ def get_fourier_matrix():
     """
     M = np.empty((T*D, D), dtype=np.float64)
     for d in range(D):
-        if d >= 2:
-            w_d = 1.0
-        elif d == 0:
-            w_d = 0.5
-        else:
-            assert d == 1
-            w_d = 23.0/24.0  # see notes.txt, DIGRESSION ON APPROXIMATING
-                             # INTEGRALS WITH SPLINES
+        w_d = 1.0 if d > 0 else 0.5
         for k in range(T*D):
             c = math.sqrt(2.0 / math.pi) * (S / D) * w_d
             M[k,d] = c * math.cos(k * d * S * math.pi / (D * D))
@@ -64,38 +57,12 @@ def get_objf(F, iter, do_print=False):
     # frequency range.
     penalty2 = (F[D:]).abs().sum() * 2.0
 
-    # penalty3 checks the function starts at 1
-    penalty3 = (F[0] - torch.tensor([1.0])).abs().sum() * 50.0
-
-    # This is like the second penalty but starting from 2*D and with a higher
-    # constant-- to strongly penalize high-freq energy.
-    penalty4 = (F[2*D:]).abs().sum()
-
-    # the third penalty ensures that we don't have negative gains,
-    # which would lead to an inconvenient phase flip.
-    penalty5 = torch.max(torch.tensor([0.0]), -F).sum() * 10.0
-
-    # the 5th penalty tries to ensure that F is nondecreasing, i.e.
-    # the gain decreases as the frequency gets further from the origin.
-    penalty6 = torch.max(torch.tensor([0.0]), F[1:] - F[:-1]).sum() * 10.0
-
-
-
-#         grad_limit = torch.tensor(2.5 / (2*J), dtype=torch.float64)  #  1/(2J) would be avg grad if it fell from 1 to 0 linearly.  The 2.5 is wiggle room;
-#                                                                     # it  trades off how reasonable/smooth the frequency response looks vs.
-#                                                                     # how low we can get the f_penalty part of the objective (the part of the time-domain
-#                                                                     # filter outside our specified bounds).
-
-#         F_penalty1 = torch.max(torch.tensor([0], dtype=torch.float64),
-#                                -(F_j[1:] - F_j[:-1]) - grad_limit).sum()
-#         F_penalty2 = torch.max(torch.tensor([0], dtype=torch.float64),
-#                                (F_j[1:] - F_j[:-1])).sum()
-
-
-    loss = penalty1 + penalty2 + penalty3 + penalty4 + penalty5 + penalty6
+    loss = penalty1 + penalty2
     if do_print:
-        print("Iter {}: loss = {} = 1:{} + 2:{} + 3:{} + 4:{} + 5:{} + 6:{}".format(
-                iter, loss, penalty1, penalty2, penalty3, penalty4, penalty5, penalty6))
+        print("Iter {}: loss = {} = {} + {}".format(
+                iter, loss, penalty1, penalty2))
+        print("Iter {}: relative error in frequency gain is {}; integral of energy in banned frequency region is {}".format(
+                iter, penalty1 / (D//2), (F[D:]).abs().sum() * (math.pi / D)))
     return loss
 
 
@@ -130,7 +97,7 @@ def __main__():
     # need to penalize in the time domain for frequencies above this; that means
     # we can boost up the relative cutoff frequency by a factor of T, giving
     # us a cutoff frequency of 0.5 S T / D.
-    (f, filter_width) = filters.high_pass_filter(0.5 * S * T / D, num_zeros = 5)
+    (f, filter_width) = filters.high_pass_filter(0.5 * S * T / D, num_zeros = 10)
     filt = torch.tensor(f)  # convert from Numpy into Torch format.
 
 
@@ -143,8 +110,8 @@ def __main__():
     M = get_fourier_matrix()
     print("M = {}".format(M))
 
-    lrate = 0.0001  # Learning rate
-    momentum = 0.95
+    lrate = 0.000001  # Learning rate
+    momentum = 0.99
     momentum_grad = torch.zeros(f.shape, dtype=torch.float64)
 
     for iter in range(10000):
@@ -155,18 +122,27 @@ def __main__():
         O = get_objf(F, iter, (iter % 100 == 0))
 
 
-        max_error = 0.01  # f should stay at least this close to f_approx.
-        f_penalty1 = torch.max(torch.tensor([0.0]), torch.abs(f - f_approx) - 0.01).sum() * 5.0
+        max_error = 0.02  # f should stay at least this close to f_approx.
+                          # Actually it's within 0.01, we're giving it a little
+                          # more freedom than that.  This is to get it in the
+                          # region of a solution that we know is good, and avoid
+                          # bad local minima.
+        f_penalty1 = torch.max(torch.tensor([0.0]), torch.abs(f - f_approx) - max_error).sum() * 5.0
 
-        f_extended = torch.cat((torch.flip(f, dims=[0]), f))
+        f_extended = torch.cat((torch.flip(f[1:], dims=[0]), f))
         f_extended_highpassed = torch.nn.functional.conv1d(f_extended.unsqueeze(0).unsqueeze(0),
-                                                           filt.unsqueeze(0).unsqueeze(0), padding=filter_width)
+                                                           filt.unsqueeze(0).unsqueeze(0),
+                                                           padding=filter_width)
         f_extended_highpassed = f_extended_highpassed.squeeze(0).squeeze(0)
-        f_penalty2 = f_extended_highpassed.abs().sum()
+        f_penalty2 = f_extended_highpassed.abs().sum() * 10.0
+
+
+        highpassed_integral = (S / D) * f_penalty2 / 10.0 # multiply by distance between samplesa
 
 
         if (iter % 100 == 0):
-            print("f_penalty = {}+{}".format(f_penalty1, f_penalty2))
+            print("f_penalty = {}+{}; integral of abs(highpassed-signal) = {} ".format(
+                    f_penalty1, f_penalty2, highpassed_integral))
         O = O + f_penalty1 + f_penalty2
 
         O.backward()
