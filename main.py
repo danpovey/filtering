@@ -51,18 +51,21 @@ def get_objf(F, iter, do_print=False):
     # This first penalty term makes sure that after taking into account
     # the contributions from the overlapping frequency bands, the total gain
     # for each frequency is 1.
-    penalty1 = ((F[0:D//2]**2  + torch.flip(F[D//2:D], dims=[0])**2) -
-                torch.tensor([1.0])).abs().sum()
+    freq_error = ((F[0:D//2]**2  + torch.flip(F[D//2:D], dims=[0])**2) -
+                  torch.tensor([1.0]))
+
+    penalty1 = torch.sqrt((freq_error ** 2).sum() + 1.0e-20)
+
     # the second penalty ensures that we have no energy outside the desired
     # frequency range.
-    penalty2 = (F[D:]).abs().sum() * 2.0
+    penalty2 = torch.sqrt(((F[D:]) ** 2).sum() + 1.0e-20) * 2.0
 
     loss = penalty1 + penalty2
     if do_print:
         print("Iter {}: loss = {} = {} + {}".format(
                 iter, loss, penalty1, penalty2))
         print("Iter {}: relative error in frequency gain is {}; integral of energy in banned frequency region is {}".format(
-                iter, penalty1 / (D//2), (F[D:]).abs().sum() * (math.pi / D)))
+                iter, freq_error.abs().sum() / (D//2), (F[D:]).abs().sum() * (math.pi / D)))
     return loss
 
 
@@ -134,7 +137,7 @@ def __main__():
                                                            filt.unsqueeze(0).unsqueeze(0),
                                                            padding=filter_width)
         f_extended_highpassed = f_extended_highpassed.squeeze(0).squeeze(0)
-        f_penalty2 = f_extended_highpassed.abs().sum()
+        f_penalty2 = torch.sqrt((f_extended_highpassed ** 2).sum() + 1.0e-20)
 
 
         highpassed_integral = (S / D) * f_penalty2  # multiply by distance between samplesa
@@ -158,6 +161,7 @@ def __main__():
     plt.grid()
     plt.show()
     print("F = ", repr(F))
+    torch.set_printoptions(precision=20)
     print("f = ", repr(f))
 
 
