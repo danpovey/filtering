@@ -134,11 +134,10 @@ def __main__():
                                                            filt.unsqueeze(0).unsqueeze(0),
                                                            padding=filter_width)
         f_extended_highpassed = f_extended_highpassed.squeeze(0).squeeze(0)
-        f_penalty2 = f_extended_highpassed.abs().sum() * 10.0
+        f_penalty2 = f_extended_highpassed.abs().sum()
 
 
-        highpassed_integral = (S / D) * f_penalty2 / 10.0 # multiply by distance between samplesa
-
+        highpassed_integral = (S / D) * f_penalty2  # multiply by distance between samplesa
 
         if (iter % 100 == 0):
             print("f_penalty = {}+{}; integral of abs(highpassed-signal) = {} ".format(
