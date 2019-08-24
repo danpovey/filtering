@@ -1,19 +1,22 @@
+import math
 
 #
-# This is the filter-function that is output from main.py with D = 256, S = 6, T = 4
-
+# This is the filter-function that is output from ../filter_shape/main.py with D = 256, S = 6, T = 4.
 #
-
 # Some relevant output:
-#Iter 2900: loss = 0.0034940478076878534 = 0.001948682481330361 + 0.0015453653263574922
-#Iter 2900: relative error in frequency gain is 0.00015498327728149033; integral of energy in banned frequency region is 0.00013199150111036664
-#f_penalty = 0.0+0.0008554934278938378; integral of abs(highpassed-signal) = 3.341771202710304e-06
-#F =  tensor([ 1.0001e+00,  1.0001e+00,  1.0001e+00,  ..., -2.9525e-06,
-#        -3.7071e-06, -4.4700e-06])
-
+# Iter 2900: relative error in frequency gain is 0.00015374938993331817; integral of energy in banned frequency region is 0.00013761181521137081
+# f_penalty = 0.0+0.0021310990157878996; integral of abs(highpassed-signal) = 8.324605530421483e-06
+# F =  tensor([1.0001e+00, 1.0001e+00, 1.0001e+00,  ..., 2.9109e-06, 2.3796e-06,
+#         1.8225e-06])
 
 # Note: f is a vector of dimension 256 * 6.
 
+
+D = 256  # number of ticks per unit that we stored.
+S = 6    # support of f is on [-S..S]... we have only [0..S] defined
+         # in f below, as it's symmetric.
+
+# dimension of F is D * S = 256 * 6.
 f =  [ 5.82196852216907090316e-01,  5.82190943787145309685e-01,
          5.82173208672278730269e-01,  5.82143650995166739293e-01,
          5.82102272027287592771e-01,  5.82049073548666751066e-01,
@@ -782,5 +785,27 @@ f =  [ 5.82196852216907090316e-01,  5.82190943787145309685e-01,
         -6.02153049570259253447e-05, -5.87699608419472110010e-05,
         -5.73272029501020993270e-05, -5.58869861246801704724e-05,
         -5.44492780366596473667e-05, -5.30140595086560774234e-05]
+
+def get_function_at(t):
+    # Gets the function value f(t) at time t, where f(t) is our special filter
+    # function with support on [-6,6].  It is very close to a sinc function
+    # times a Gaussian, and looks a little bit like the Mexican hat function; it
+    # was numerically optimized to have certain nice properties enabling easy
+    # signal reconstruction; see ../filter_shape/notes.txt
+    assert len(f) == S * D
+    if t < 0:
+        t = -t  # the function is symmetric.
+
+    pos_in_array = t / D
+    i = math.floor(pos_in_array)
+    p = pos_in_array - i
+
+    val_i = f[i] if i < S * D else 0.0
+    val_i1 = f[i+1] if i + 1 < S * D else 0.0
+
+    # just linearly interpolate between the two values...  they are spaced quite
+    # closely, so this should be enough for now; maybe at some point we could
+    # make this a better approximation.
+    return (1.0 - p) val_i + p * val_i1
 
 

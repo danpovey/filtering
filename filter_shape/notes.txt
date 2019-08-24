@@ -114,13 +114,10 @@
 
 
   First, just a note on which version of the Fourier transform we are using.
-  We'll be using the angular-frequency version of the Fourier transform, with
-  the sqrt(2 pi) term that ensures symmetry between the Fourier transform and
-  its inversion (this will make it more straightforward to get an approximately
-  self-adjoint basis).  So:
+  We'll be using the angular-frequency version of the Fourier transform.
 
-    F(omega)  =   1/sqrt(2\pi)   \integral_{-infty}^{+infty} f(t) e^{-i \omega t } dt
-    f(t)  =   1/sqrt(2\pi)  \integral_{-\infty}^{+infty}  F(omega) e^{i t \omega}  d\omega
+    F(omega)  =    \integral_{-infty}^{+infty} f(t) e^{-i \omega t } dt
+    f(t)  =        \integral_{-\infty}^{+infty}  F(omega) e^{i t \omega}  d\omega
 
   We'll define in advance the extent of time support of f(t): say, -S to S where
   S might be, say, 8.  (We'll make S an integer for convenience).  We'll be optimizing
@@ -130,7 +127,7 @@
   unchanged), and of course real, so we can use a one-sided integral for
   F(omega), replace the complex exponential with a cosine, and multiply by 2:
 
-    F(omega)  =   sqrt(2/\pi)   \integral_0^{+infty} f(t) cos(\omega t) dt     (eqn:1)
+    F(omega)  =   2   \integral_0^{+infty} f(t) cos(\omega t) dt     (eqn:1)
 
   We'll be evaluating F(omega) for omega = 0 ... T\pi, for another integer T
   that we define in advance (has to be large enough so that we can penalize
@@ -179,7 +176,7 @@
 
  So, for 0 <= k < T D:
 
-   F_k = sqrt(2/\pi) * 1/D *   \sum_{d=0}^{SD-1} w_d  f_d cos(k d \pi / D^2)
+   F_k = 2/D *   \sum_{d=0}^{SD-1} w_d  f_d cos(k d \pi / D^2)
 
  where w_d = 0.5 if d is 0 and 1.0 otherwise.
 
@@ -190,7 +187,7 @@
 
  Suppose the matrix is M with elements M_{kd}; we'd have:
 
-    M_{kd} =  sqrt(2/\pi) * 1/D *  w_d cos(k d \pi / D^2).
+    M_{kd} =  2/D *  w_d cos(k d \pi / D^2).
 
  We'll compute F = M f, where f is the vector of f_d.
 

@@ -7,6 +7,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+# CAUTION: this was done with an older version of the code, when there
+# was a bug relating to the scale of the function.  This file is
+# not actually needed for anything right now, it was used while I was
+# trying to find a functional form that is a good approximation
+# of the filter we're learning.  For the result, please see the function
+# `get_functin_approx()` in ./main.py.
+
 
 
 

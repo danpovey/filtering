@@ -27,7 +27,7 @@ def get_fourier_matrix():
     for d in range(S*D):
         w_d = 1.0 if d > 0 else 0.5
         for k in range(T*D):
-            c = math.sqrt(2.0 / math.pi) * w_d / D
+            c = 2.0 * w_d / D
             M[k,d] = c * math.cos(k * d * math.pi / (D * D))
 
     return torch.tensor(M)
@@ -75,7 +75,7 @@ def get_freq_objf(F, iter, do_print=False):
 
 
 def get_function_approx(x):
-    scale = 1.466 # value at x=0
+    scale = 0.585 # value at x=0
     first_zero_crossing = 1.72
     stddev = 2.95   # standard deviation of gaussian we multiply by
     if x == 0:
