@@ -10,7 +10,9 @@ import filter_utils.filters as filters
 
 
 
-D = 512    # Defines how many discrete points we use in our approximations
+D = 256    # Defines how many discrete points we use in our approximations per
+           # unit in the time domain or per interval of size pi in the angular-frequency
+           # domain
 S = 6      # Time support of the canonical filter function would be [-S..S]... in
            # the frequency domain, almost all the energy should be in [-pi..pi].
 T = 4      # how many multiples of pi we compute the freq response for
@@ -18,23 +20,24 @@ T = 4      # how many multiples of pi we compute the freq response for
 
 def get_fourier_matrix():
     """ Returns the matrix M_{kd} as a torch.Tensor; this maps the time
-        domain filter values f_d = f(S d / D) for d=0..D-1, to
+        domain filter values f_d = f(d / D) for d=0..SD-1, to
         the frequency domain gains F_k = F(k \pi / D) for k=0..(TD-1)
     """
-    M = np.empty((T*D, D), dtype=np.float64)
-    for d in range(D):
+    M = np.empty((T*D, S*D), dtype=np.float64)
+    for d in range(S*D):
         w_d = 1.0 if d > 0 else 0.5
         for k in range(T*D):
-            c = math.sqrt(2.0 / math.pi) * (S / D) * w_d
-            M[k,d] = c * math.cos(k * d * S * math.pi / (D * D))
+            c = math.sqrt(2.0 / math.pi) * w_d / D
+            M[k,d] = c * math.cos(k * d * math.pi / (D * D))
 
     return torch.tensor(M)
 
 
 
-def get_objf(F, iter, do_print=False):
+def get_freq_objf(F, iter, do_print=False):
     """
-    This function returns the objective function.
+    This function returns the part of the objective function that comes from
+    the frequency domain.
 
     Args:
          F: a torch.Tensor of shape (D*T), i.e a vector.  The k'th
@@ -82,7 +85,7 @@ def get_function_approx(x):
         return sinc * math.exp(- x*x*(stddev ** -2))
 
 def get_f_approx():
-    x_axis = [ (S * 1.0 / D) * x for x in range(D) ]
+    x_axis = [ (1.0 / D) * x for x in range(S * D) ]
     return torch.tensor( [ get_function_approx(x) for x in x_axis ] )
 
 
@@ -92,15 +95,15 @@ def __main__():
 
     # We don't want the time-domain filter to have energy above an angular
     # frequency of pi, which corresponds to a frequency of 0.5.  The sampling
-    # rate in the time domain (the f_t values) is D / S, so the relative
-    # frequency of the cutoff is 0.5 / (D / S) = 0.5 S / D.  (This would be the
+    # rate in the time domain (the f_t values) is D, so the relative
+    # frequency of the cutoff is 0.5 / D.  (This would be the
     # arg to filter_utils.filters.high_pass_filter).  This will make an
     # inconveniently wide filter, though.  We are already penalizing these high
     # energies explicitly in the fourier space, up to T * pi, so we only really
     # need to penalize in the time domain for frequencies above this; that means
     # we can boost up the relative cutoff frequency by a factor of T, giving
-    # us a cutoff frequency of 0.5 S T / D.
-    (f, filter_width) = filters.high_pass_filter(0.5 * S * T / D, num_zeros = 10)
+    # us a cutoff frequency of 0.5 T / D.
+    (f, filter_width) = filters.high_pass_filter(0.5 * T / D, num_zeros = 10)
     filt = torch.tensor(f)  # convert from Numpy into Torch format.
 
 
@@ -113,16 +116,14 @@ def __main__():
     M = get_fourier_matrix()
     print("M = {}".format(M))
 
-    lrate = 0.000001  # Learning rate
+    lrate = 0.00001  # Learning rate
     momentum = 0.99
     momentum_grad = torch.zeros(f.shape, dtype=torch.float64)
 
-    for iter in range(10000):
-        if iter % 500 == 0:
-            lrate *= 0.5
+    for iter in range(3000):
 
         F = torch.mv(M, f)
-        O = get_objf(F, iter, (iter % 100 == 0))
+        O = get_freq_objf(F, iter, (iter % 100 == 0))
 
 
         max_error = 0.02  # f should stay at least this close to f_approx.
@@ -140,11 +141,15 @@ def __main__():
         f_penalty2 = torch.sqrt((f_extended_highpassed ** 2).sum() + 1.0e-20)
 
 
-        highpassed_integral = (S / D) * f_penalty2  # multiply by distance between samplesa
+        highpassed_integral = (1.0 / D) * f_penalty2  # multiply by distance between samplesa
 
         if (iter % 100 == 0):
             print("f_penalty = {}+{}; integral of abs(highpassed-signal) = {} ".format(
                     f_penalty1, f_penalty2, highpassed_integral))
+
+        if (iter > 2000 and f_penalty1 != 0):
+            raise RuntimeError("Expected, at convergence, not to be encountering 1st penalty.")
+
         O = O + f_penalty1 + f_penalty2
 
         O.backward()
@@ -153,16 +158,16 @@ def __main__():
             f -= momentum_grad * lrate
             f.grad.data.zero_()
 
-        if iter in [ 9999 ]: #[ 2000, 3000, 5000, 9999 ]:
-            plt.plot( (S * 1.0 / D) * np.arange(D), f.detach())
-            plt.plot( (math.pi/D) * np.arange(D*T), F.detach())
+
+    plt.plot((1.0 / D) * np.arange(S*D), f.detach())
+    plt.plot((math.pi / D) * np.arange(D*T), F.detach())
 
     plt.ylabel('f_k, F_k')
     plt.grid()
     plt.show()
-    print("F = ", repr(F))
-    torch.set_printoptions(precision=20)
-    print("f = ", repr(f))
+    print("F = ", repr(F.detach()))
+    torch.set_printoptions(profile='full', precision=20)
+    print("f = ", repr(f.detach()))
 
 
 

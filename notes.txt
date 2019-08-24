@@ -147,22 +147,22 @@
            the phase at the Nyquist.
 
    We'll be evaluating both f(t) and F(omega) at discrete points.  Suppose there
-   are D equally spaced points in f(t), and also D equally spaced points in each
-   interval of size \pi in F(omega); there are T such intervals (e.g. T = 4;
-   we need to make T high enough to prevent high frequency ringing, which would
-   not be properly penalized if T was too small.
+   are D equally spaced points per unit on the x-axis of f(t), and also D
+   equally spaced points in each interval of size \pi in F(omega); there are T
+   such intervals (e.g. T = 4; we need to make T high enough to prevent high
+   frequency ringing, which would not be properly penalized if T was too small.
 
-   We'll define f(t) at the points 0, S/D, 2S/D, ... (D-1) S / D; and
+   We'll define f(t) at the points 0, 1/D, 2/D, ... (SD-1) / D; and
    we'll evalute F(omega) at the points 0, \pi/D, 2\pi/D, ... (TD - 1)\pi / D.
 
-        t_d = S d / D    (for  0 <= d < D)
+        t_d =  d / D    (for  0 <= d < S D)
       \omega_k = k \pi / D     (for 0 <= k < T D)
 
-  Define f_d as f(t_d) == f(S d / D); this is a learnable parameter in our
-  formulation, i.e. we are learning the vector of f_d from d = 0...D.
-  Note: to compute some things below we'll need f_d for d = D and D+1;
-  we'll treat both of these as zero, since the filter is zero outside its
-  defined region of support, and it's smooth.
+  Define (as a shorthand notation):
+      f_d  ==  f(t_d) == f(d / D)
+  .. the values f_d will be learnable parameters in our formulation, i.e. we are
+  learning the vector of f_d from d = 0...SD.  Note: implicitly, f_{-d} == f_d,
+  by symmetry, and for d >= SD, f_d would be zero.
 
   Also, define
      F_k = F(\omega_k) = F(k \pi / D),
@@ -171,30 +171,26 @@
   separate regions.
 
 
- Referring back to (eqn:1), and using the notes above, we will approximate the integral
- expression that gives F(omega) as a sum.  We'll be evaluating this for the following points,
- for 0 <= k < T D:
+  Referring back to (eqn:1), and using the notes above, we will approximate the integral
+  expression that gives F(omega) as a sum.  We'll be evaluating this for the following points,
+  for 0 <= k < T D:
 
-    F_k = F(\omega_k) = F(k \pi / D); and also remember, t_d = S d / D.
-
- We can treat e^{-i \omega t } as
+    F_k = F(\omega_k) = F(k \pi / D); and also remember, t_d = d / D.
 
  So, for 0 <= k < T D:
 
-   F_k = sqrt(2/\pi) (S / D)  \sum_{d=0}^{D-1} w_d  f_d cos(k d S \pi / D^2)
+   F_k = sqrt(2/\pi) * 1/D *   \sum_{d=0}^{SD-1} w_d  f_d cos(k d \pi / D^2)
 
  where w_d = 0.5 if d is 0 and 1.0 otherwise.
 
- f_d (for 0 <= d < D) is the thing we're optimizing; F_k is the thing on which
+ f_d (for 0 <= d < SD) is the thing we're optimizing; F_k is the thing on which
  we want to impose various penalties and constraints (to get the frequency
  response we want); and all the other terms in there become the elements of a
- matrix.
-
- The factor S/D is from the width of the discretized regions.
+ matrix.  The new factor 1/D is from the width of the discretized regions.
 
  Suppose the matrix is M with elements M_{kd}; we'd have:
 
-    M_{kd} =  sqrt(2/\pi) (1/(S D)) w_d cos(k d S \pi / D^2).
+    M_{kd} =  sqrt(2/\pi) * 1/D *  w_d cos(k d \pi / D^2).
 
  We'll compute F = M f, where f is the vector of f_d.
 
@@ -202,140 +198,23 @@
  It's mostly fairly obvious how we'd impose these.  The constraint:
    F(omega)^2 + F(pi - omega)^2 = 1
  amounts to ensuring that, for 0 < k <= D/2,
-    F_k^2 + F_{D-k}^2 == 1 (approximately; we'll do it via l1 regularization).
- We also want
-   F_0 == 1
-   F_k == 0 for k >= D
+    F_k^2 + F_{D-k}^2 == 1 (approximately; we'll do both by putting a penalty on their
+ l2 norm.
 
- And we want the series F_k to be non-increasing, and not to decrease too sharply
- either (can put a limit on the derivative).
+ To avoid high-frequency energy the signal f that is not appropriately penalized
+ by the constraints on F_k (because we only evaluate it up to a finite
+ frequency), we also penalize the l2 norm of a highpassed version of f, where the
+ high-pass filter is chosen with a cutoff corresponding to the angular frequency
+ of T pi (this is the highest frequency we explicitly penalize)... in regular
+ non-angular frequency, this would be T/2 (divide by 2 pi).
 
-
-
-
-
-
-
-============
-
-  We want the Fourier transform of this function to have as tight support as
-  possible.
-  Let F(y) be the fourier transform of x (physically evaluated from, say,
-  -16 to +16).
-
-  We'll require it to be bounded by a Gaussian with as small
-  a variance as possible.  (Note: this probably only makes sense when evaluated
-  on a finite time interval, since F(x) has bounded support and I'm not sure that
-  it's possible for f(x) to drop off that fast in the limit.  But this is fine
- for our purposes.)
-
-  Let the inverse variance be S, which we'll want
-  to make as large as possible.  We know that f(0) will be less than 2 pi,
-  likely less than pi.
-
-    L(y, S) = max(0,  log( f(y) / (2 pi exp( - 0.5 S y^2 )) ))
-
-  If f(y) is bounded by the function  exp( - 0.5 S y^2 ), L(y, S) will be zero
-       for all y.
-  Suppose we are evaluating f(y) at K distinct points y_k for k=0..K-1.
-
-  The loss function will be:
-
-      O = -S + (1/K) sum_k L(y_k, S).
+ Also, to avoid the optimization reaching bad local optima, we force f_t to be
+ close to a functional form that we found is a close approximation to the
+ learned time-domain filter; this is a sinc function times a Gaussian (see the
+ code for details), and it's correct to over 99% in l1 integral with maximum
+ absolute deviation less than 0.01.
 
 
-=========
-
- For the physical computation we'll discretize it.  The function f(x), defined for x=0...pi,
- will be split up into J equal-sized intervals, of size pi/J.  (Say, J=128 or something like that).
-
- It is the points at  F( pi j / J) for 0 < j < J which we need to define; there are J-2 of
- them.  ( F(0) and F(pi) are 1 and 1/sqrt(2) respectively. )  Let us write
- F_j as a shorthand for F(pi j / J)
-
- Next we consider the inverse fourier transform of F(omega): f(t).  Note: we are
- using the angular-frequency versions of these equations, which are a little
- different.  Canonically this would be:
-
-     f(t) = 1/(2pi)  \integral_{omega=-infinity}^{infinity} exp(i omega t) F(omega)
-
- and because F(omega) is real and symmetric, we can write this using cosines only,
- and integrating over [0..pi]:
-
-     f(t) = 1/pi  \integral_{omega=0}^{pi} cos(omega t) F(omega)
-
- We'll define F(omega) for the points
-
-     omega_j = pi j / J,
- and define:
-     F_j   =   F(omega_j)
- (we'll explain below specifically how we compute F_j).
-
- We can approximate the integral as a sum; note, the size of the segmentas is
- pi/J, so we multiply by that.   Define c_j as 1 if j>0, and 1/2 if
- j is 0 (because in that cases we only use half the segment).
-
- We have:
-    f(t) =   1/J  \sum_{j=1}^2J  c_j cos(omega_j t) F_j
-
-    f(t) =   1/J  \sum_{j=1}^2J  c_j cos(pi j t / J) F_j                 (eqn:1)
-
-
- Because F(omega) only has support for 0 <= omega < 2pi, we can limit the
- integral  that
- range.  Note:  we only directly define F(omega) for 0 < omega  < pi;
- for omega > pi, F(omega) = sqrt(1 - F(2pi - omega)^2).
-
- Define omega_j as:
-
-    omega_j = pi j / J,
-
- We define quantities \theta_j for j = 1..J-1; these are the trainable
- parameters which will define the values of F(omega_j).
-
-  We'll define F_j as follows:
-
-    F_j = abs(cos(\theta_j))  for 0 < j < J, and
-    F_j = abs(sin(\theta_{2J - j})) for J < j < 2J.
-    F_0 = 1
-    F_J = sqrt(2)
-
- Let there be J intervals per unit time on the time axis.  We evalute the function
- of time on a finite interval, say -4..4; but f(t) is also symmetric, so we can
- focus on 0 <= t < 4.
-
- Let's use the index k for the index on the time axis.  We'll evaluate f(t_j)
-   for 0 <= k < 4J, defining:
-  t_k = k / J.
-
- Define f_k = f(t_k).  Substituting t_k = k / J, we have:
-
-    f_k =  1/J  \sum_{j=1}^2J  c_j cos(pi j k / J^2) F_j                (eqn:2)
-
-
- We can compute a matrix of the f_k from the F_j quantities, it becomes a matrix
- multiplication with the cosines (and c_j) as the elements of the matrix.
-
- Let this matrix be M_{k,j}.  Its entries corresponds to the coefficients in (eqn:2),
- so:
-
- So it's:
-    M_{k,j} = 1/J * (j == 0 ? 0.5 : 1) *  cos(pi * j * k / J^2).
-
- Objective function:
-
-  To start with, could minimize sum-of-squares of the higher-numbered f_k;
-  say those with 2J <= k < 4J.
-
-
-
-===
-  Extrema and zero crossings of functions:
-
-
- (x,y):
-  0,1.462
-  1.71,0
 
 
 
