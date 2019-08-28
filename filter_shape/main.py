@@ -54,7 +54,7 @@ def get_freq_objf(F, iter, do_print=False):
     # This first penalty term makes sure that after taking into account
     # the contributions from the overlapping frequency bands, the total gain
     # for each frequency is 1.
-    freq_error = ((F[0:D//2]**2  + torch.flip(F[D//2:D], dims=[0])**2) -
+    freq_error = ((F[0:D//2+1]**2  + torch.flip(F[D//2:D+1], dims=[0])**2) -
                   torch.tensor([1.0]))
 
     penalty1 = torch.sqrt((freq_error ** 2).sum() + 1.0e-20)
@@ -165,6 +165,7 @@ def __main__():
     plt.ylabel('f_k, F_k')
     plt.grid()
     plt.show()
+    print("F at pi/2 is: ", F[D//2].item())
     print("F = ", repr(F.detach()))
     torch.set_printoptions(profile='full', precision=20)
     print("f = ", repr(f.detach()))
