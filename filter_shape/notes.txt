@@ -9,14 +9,24 @@
 
  By "gabor-like" what I mean - and this may be totally the wrong terminology -
  is that each filter will be a real function with limited support times a complex
- exponential.  The basic idea is to divide the signal into multiple streams,
- with each stream sampled at a lower sample rate and representing that signal
- band-limited to a particular part of the frequency spectrum.  To keep the
- filter functions time-local we can't have sharp cutoffs in the frequency domain,
- and we'll need to have filters that overlap somewhat in frequency.  The basic
- idea will be intuitively quite similar to how mel filter-banks are normally
- constructed, with triangular filters; except that the actual computation is
- done in the time domain.
+ exponential, i.e. the k'th filter function will be:
+
+   f_k(t) = f(t) exp(- omega_k i t)
+
+ Let the input signal be a(t).
+
+ We can sample the a_t *  f_k(t)  [* is convolution] at a lower sampling rate
+ than a_t if f(t) has limited enough support in the frequency domain.
+
+
+ The basic idea is to divide the signal into multiple streams, with each stream
+ sampled at a lower sample rate and representing that signal band-limited to a
+ particular part of the frequency spectrum.  To keep the filter functions
+ time-local we can't have completely sharp cutoffs in the frequency domain, and
+ we'll need to have filters that overlap somewhat in frequency to avoid major
+ aliasing effects.  The basic idea will be intuitively quite similar to how mel
+ filter-banks are normally constructed, with triangular filters; except that the
+ actual computation is done in the time domain.
 
  For some background that may be relevant and to explain the terminology
  "self-adjoint frame", see the concept of a "frame" here:
@@ -39,32 +49,33 @@
  We are going to split up the signal into N separate streams where N is even;
  each stream will be sampled every N/2 seconds. (Remember: we assumed, without loss
  of generality, that the original signal was sampled at 1Hz).  Each stream with
- index k=0..N-1 will have a central angular-frequency of omega=(2pi k / N),
+ index k=0..N-1 will have a central angular-frequency of omega=(2pi (k + 1/2) / N),
  i.e. it will span a complex-frequency band of the input that's centered at
- omega.  Note that this gives us frequencies above the Nyquist, but we are
- viewing it as circular; this just makes the indexing slightly easier than
- having k range from -N/2 to N/2-1.
+ omega.  Note that the last bin would give us frequencies above the Nyquist, and
+ the first bin would give us some negative frequencies, but this doesn't matter..
+ we can make the argument that if we had these bins all the way around the
+ circle, including negative frequencies too, we'd get unit impulse response at
+ all frequencies.
+
 
  We are oversampling the signal by a factor of 2 (some oversampling is typically
  inevitable in these kinds of schemes, if you want good time/frequency locality);
  the factor of 2 oversampling is just an arbitrary choice, which we are
  making concrete for simplicity.  The width of each of the frequency bands, from
  top to bottom, is 2pi divided by (N/2) = 4pi/N, and the Nyquist of each of them
- would be 2pi/N.  As a special case, if N == 2 this means that we split the
+ would be pi * 2/N.  As a special case, if N == 2 this means that we split the
  signal up into two halves with the same sampling rate, i.e. the sampling rate
  doesn't change.
 
- For the frequency band with k=0 we'll essentially be convolving the time-domain
- signal with a symmetric filter function with limited support in.  We want this
- filter function to have limited support in the frequency domain as well.
- (Technically doing both of these as the same time is impossible, but we can get
- close.)
 
  The constraint we want to satisfy is that when we multiply by the shifted
  filter functions times the complex exponentials required to give us the
  center frequences of the N separate streams, we get back the original
  signal energy for any angular frequency in [-pi..pi].  This becomes a constraint
  on the frequency response of the filter functions.
+
+ TODO: rework this section a bit to correspond with f(t) being the one we
+ optimize.
 
  We'll define the canonical filter as a function F(omega) with support on
  -pi..pi.  (We'll scale down on the frequency axis by N/2 to get the actual
@@ -211,7 +222,53 @@
  code for details), and it's correct to over 99% in l1 integral with maximum
  absolute deviation less than 0.01.
 
+==================
 
+ NOTES ON CONSTANT FACTORS.
+
+ To compute the band-limited data, we can simply convolve the input signal with
+ the impulse reponse f(t) that we'll obtain by the procedure described above.
+
+ We're assuming the sampling rate of the input data was 1Hz.
+ Suppose the sampling rate of the band-limited data was 1/N Hz.
+ In order to reconstruct the original 1Hz data from this data we'd have to
+ apply a factor of N (it's fairly obvious why, as there are a factor of N
+ fewer points to sum over).
+
+ The above is only valid, though, if we have subsampled streams all the way
+ around the unit circle, i.e. including negative frequencies as well as
+ positive.  Because, to avoid redundancy, we only compute the filters for
+ positive frequencies we need an extra factor of 2 for all filters that have a
+ twin that has been omitted (so: 2N, instead of N.)  (The real part of the
+ positive- and negative-frequency constributions would be the same, and the
+ imaginary part should cancel, so when reconstructing we just take the real part
+ of the positive-frequency component and double it.
+
+
+
+=====
+
+ Notes on computing analytic version of this filter.
+
+ To handle the symmetries at frequencies 0 and pi in a nice way, it would be
+ nice to work with the analytic version of the input signal.  (That way,
+ in the frequency domain we'd be padding with zeros for angular frequencies
+ omega < 0 and omega > pi, instead of reflecting, which may give our
+ algorithms an easier time.
+
+ The obvious way to do this would be to apply the Hilbert transform to the
+ signal itself before applying our filters to get the imaginary part of the
+ analytic signal, and convolve our filters with the analytic signal;
+ but computing the Hilbert transform in practice is very nontrivial.  What
+ seems to be easier, using the fact that convolution is associative,
+ is to convolve the Hilbert transform with our low-pass filter and apply
+ that directly to the signal to get the imaginary part.
+
+ We can compute the hilbert transform of f(t) in the frequency domain.
+
+ In frequency space applying the Hilbert transform is the same as multiplying
+ by twice the Heaviside function.  We can view this as multiplying by
+ the sign function sgn(x) and then adding the original.
 
 
 
