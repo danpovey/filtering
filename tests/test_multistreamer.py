@@ -2,23 +2,102 @@ import unittest
 import os
 import numpy as np
 import sys
+import torch
+import math
+import matplotlib.pyplot as plt
 
 # Add .. to the PYTHONPATH
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir))
 
-import filter_utils.filter_function as f
+import filter_utils.multistreamer as m
 
 
-class TestFilterFunction(unittest.TestCase):
-    def test1(self):
-        # test symmetry
-        self.assertTrue(f.get_function_at(-1) == f.get_function_at(1))
+class TestMultistreamer(unittest.TestCase):
+    def test_constructor_and_forward(self):
+        # test constructor doesn't crash with various args,
+        # and that the forward computation does not crash.
 
-        self.assertTrue(f.get_function_at(f.S) == 0)
-        self.assertTrue(f.get_function_at(-f.S) == 0)
-        self.assertTrue(f.get_function_at(-2.0*f.S) == 0)
-        self.assertTrue(f.get_function_at(f.S - 0.01) != 0)
-        self.assertTrue(f.get_function_at(-f.S+ 0.01) != 0)
+        signal = torch.randn((2, 500), dtype=torch.float32)
+
+        a = m.Multistreamer()
+        b = a.split(signal)
+        c = a.merge(b)
+        print("b.shape = {}, c.shape = {}".format(b.shape, c.shape))
+
+        a = m.Multistreamer(4)
+        b = a.split(signal)
+        c = a.merge(b)
+        print("b.shape = {}, c.shape = {}".format(b.shape, c.shape))
+
+        a = m.Multistreamer(5)
+        b = a.split(signal)
+        c = a.merge(b)
+        print("b.shape = {}, c.shape = {}".format(b.shape, c.shape))
+
+        a = m.Multistreamer(full_padding = False)
+        b = a.split(signal)
+        c = a.merge(b)
+        print("b.shape = {}, c.shape = {}".format(b.shape, c.shape))
+
+        signal = torch.randn((2, 500), dtype=torch.float64)
+        a = m.Multistreamer(double_precision = True)
+        b = a.split(signal)
+        c = a.merge(b)
+        print("b.shape = {}, c.shape = {}".format(b.shape, c.shape))
+
+    def test_energy(self):
+        # Testing that the forward computation has the expected effect on
+        # the energy of a sinusoid.
+        #
+        # Note on why there is a fact of 1/(2*N) on the energy:
+        #  The factor of 1/N is because there are N times fewer points than
+        #  the input.
+        #
+        # There is a factor of 1/2 on the amplitude because: firstly, the input
+        # sinusoid can be viewed as a sum of two complex exponentials which
+        # are conjugates of each other, and we only keep one of them.
+        # Each has 1/2 the amplitude, so the energy factor is 1/4.  But
+        # then each complex exponential has a real and an imaginary part,
+        # so when we sum the energy over these two parts the 1/4
+        # turns into a 1/2.
+
+        for N in range(1, 9):
+            a = m.Multistreamer(N)
+            omega = math.pi / 2
+            len = 500
+            signal = torch.zeros((1, len), dtype=torch.float32)
+            window_func = 0.5*torch.cos((torch.arange(len, dtype=torch.float32) - len/2) * (2*math.pi / len)) + 0.5
+            for i in range(len):
+                signal[0,i] = math.sin(i * omega)
+            signal = signal * window_func
+            #print(window_func)
+
+            print("N = ", N)
+            input_energy = (signal * signal).sum().item()
+            print("Energy of input signal is ", input_energy)
+            s = a.split(signal)
+            print("Energy of output signal is ", (s * s).sum().item(), ", compare ", input_energy / (2*N))
+            t = a.merge(s)
+            print("Energy of reconstructed signal is ", (t * t).sum().item())
+
+            min_len = min(t.shape[1], signal.shape[1])
+            print("min_len = ", min_len)
+
+            print("Direction match of original with reconstructed signal is ",
+                  ((((signal[:,0:min_len] * t[:,0:min_len]).sum()**2) / ((t * t).sum() * (signal * signal).sum())) ** 0.5).item())
+            plt.plot(signal[0,:])
+            plt.plot(t[0,:])
+            plt.show()
+
+            arr = []
+            for n in range(N):
+                real_energy = (s[0,0,n,:] ** 2).sum().item()
+                im_energy = (s[0,1,n,:] ** 2).sum().item()
+                arr.append('%d=%.2f+%.2fi' % (n ,real_energy, im_energy))
+
+            print("Division of energy by N and by (real,im) is: ",
+                  " ".join(arr))
+
 
 
 
