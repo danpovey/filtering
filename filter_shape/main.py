@@ -13,7 +13,7 @@ import filter_utils.filters as filters
 D = 256    # Defines how many discrete points we use in our approximations per
            # unit in the time domain or per interval of size pi in the angular-frequency
            # domain
-S = 6      # Time support of the canonical filter function would be [-S..S]... in
+S = 6     # Time support of the canonical filter function would be [-S..S]... in
            # the frequency domain, almost all the energy should be in [-pi..pi].
 T = 4      # how many multiples of pi we compute the freq response for
 
@@ -116,11 +116,11 @@ def __main__():
     M = get_fourier_matrix()
     print("M = {}".format(M))
 
-    lrate = 0.00001  # Learning rate
-    momentum = 0.99
+    lrate = 0.00005  # Learning rate
+    momentum = 0.995
     momentum_grad = torch.zeros(f.shape, dtype=torch.float64)
 
-    for iter in range(3000):
+    for iter in range(2500):
 
         F = torch.mv(M, f)
         O = get_freq_objf(F, iter, (iter % 100 == 0))

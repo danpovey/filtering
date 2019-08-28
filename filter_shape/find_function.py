@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 # not actually needed for anything right now, it was used while I was
 # trying to find a functional form that is a good approximation
 # of the filter we're learning.  For the result, please see the function
-# `get_functin_approx()` in ./main.py.
+# `get_function_approx()` in ./main.py.
 
 
 
