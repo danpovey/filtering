@@ -62,13 +62,12 @@ class TestMultistreamer(unittest.TestCase):
         # turns into a 1/2.
 
         for N in range(1, 9):
-            a = m.Multistreamer(N)
+            a = m.Multistreamer(N, full_padding = True)
             omega = math.pi / 2
-            len = 500
-            signal = torch.zeros((1, len), dtype=torch.float32)
+            len = 50
+            #signal = torch.zeros((1, len), dtype=torch.float32)
+            signal = torch.randn((1, len), dtype=torch.float32)
             window_func = 0.5*torch.cos((torch.arange(len, dtype=torch.float32) - len/2) * (2*math.pi / len)) + 0.5
-            for i in range(len):
-                signal[0,i] = math.sin(i * omega)
             signal = signal * window_func
             #print(window_func)
 
@@ -85,9 +84,11 @@ class TestMultistreamer(unittest.TestCase):
 
             print("Direction match of original with reconstructed signal is ",
                   ((((signal[:,0:min_len] * t[:,0:min_len]).sum()**2) / ((t * t).sum() * (signal * signal).sum())) ** 0.5).item())
-            plt.plot(signal[0,:])
-            plt.plot(t[0,:])
-            plt.show()
+            print("Energy ratio = ", (t * t).sum().item() / (signal * signal).sum().item())
+
+            #plt.plot(signal[0,:])
+            #plt.plot(t[0,:])
+            #plt.show()
 
             arr = []
             for n in range(N):
