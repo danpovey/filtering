@@ -11,14 +11,15 @@ import filter_utils.filter_function as f
 
 class TestFilterFunction(unittest.TestCase):
     def test1(self):
-        # test symmetry
-        self.assertTrue(f.get_function_at(-1) == f.get_function_at(1))
+        for S in [6, 10]:
+            # test symmetry
+            self.assertTrue(f.get_function_at(S, -1) == f.get_function_at(S, 1))
 
-        self.assertTrue(f.get_function_at(f.S) == 0)
-        self.assertTrue(f.get_function_at(-f.S) == 0)
-        self.assertTrue(f.get_function_at(-2.0*f.S) == 0)
-        self.assertTrue(f.get_function_at(f.S - 0.01) != 0)
-        self.assertTrue(f.get_function_at(-f.S+ 0.01) != 0)
+            self.assertTrue(f.get_function_at(S, S) == 0)
+            self.assertTrue(f.get_function_at(S, -S) == 0)
+            self.assertTrue(f.get_function_at(S, -2.0*S) == 0)
+            self.assertTrue(f.get_function_at(S, S - 0.01) != 0)
+            self.assertTrue(f.get_function_at(S, -S+ 0.01) != 0)
 
 
 
