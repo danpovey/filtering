@@ -1,6 +1,6 @@
 
 #
-# This is the filter-function that is output from main.py with D = 256, S = 10, T = 4
+# This is the filter-function that is output from optimize_filter.py with D = 256, S = 10, T = 4
 # Compare with functionS6.txt.  These are just two specific operating points that we
 # have chosen to make available; it trades off accuracy of reconstruction versus
 # speed.  (The filter with S = 10 has wider support so is slower to compute with).

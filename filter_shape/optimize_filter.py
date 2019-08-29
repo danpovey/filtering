@@ -7,15 +7,38 @@ import torch
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import filter_utils.filters as filters
+import argparse
 
 
 
-D = 256    # Defines how many discrete points we use in our approximations per
-           # unit in the time domain or per interval of size pi in the angular-frequency
-           # domain
-S = 6     # Time support of the canonical filter function would be [-S..S]... in
-           # the frequency domain, almost all the energy should be in [-pi..pi].
-T = 4      # how many multiples of pi we compute the freq response for
+import argparse
+
+parser = argparse.ArgumentParser(description='Program to tabulate filter function for '
+                                 'our signal-demultiplexing approach')
+parser.add_argument('--filter-support', metavar='S', dest='S', type=int, default=6,
+                    help='Time support of the canonical filter function would be [-S..S]. '
+                    'We require S > 1; larger values will give more accurate reconstruction')
+parser.add_argument('--grid-count', metavar='D', dest='D', type=int, default=256,
+                    help='Number of points we use to approximate the function in every interval '
+                    'of size 1 in time domain, or pi in angular-frequency domain.  More = '
+                    'more accurate.  Determines how many coeffs we output.')
+parser.add_argument('--freq-support', metavar='T', dest='T', type=int, default=4,
+                    help='The number of multiples of pi we compute the frequency-specific '
+                    'gain out to; must be greater than one.  Likely not critical.  Note: '
+                    'the place where the energy gain of the filter is half the max is '
+                    'pi/2, and the filter should have approximately zero gain after '
+                    'an angular frequency of pi.')
+
+
+args = parser.parse_args()
+assert args.D > 64 and args.S > 1 and args.T > 1
+
+
+D = args.D  # e.g. 256.  Defines how many discrete points we use in our approximations per
+            # unit in the time domain or per interval of size pi in the angular-frequency
+            # domain
+S = args.S   # e.g. 6. Support of time-domain filter goes from [-T..T].
+T = args.T   # e.g. 4. how many multiples of pi we compute the freq response for.
 
 
 def get_fourier_matrix():

@@ -6,5 +6,5 @@ the file ../filter_utils/filter_function.py, and how we derived
 various equations used in the multistreaming code.
 
 See ./notes.txt for some of the math (perhaps not presented very
-rigorously or well), and ./main.py for how we computed the filter
+rigorously or well), and ./optimize_filter.py for how we computed the filter
 shape.

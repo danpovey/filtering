@@ -1,6 +1,6 @@
 
 #
-# This is the filter-function that is output from main.py with D = 256, S = 6, T = 4
+# This is the filter-function that is output from optimize_filter.py with D = 256, S = 6, T = 4
 
 
 # Some relevant output:
