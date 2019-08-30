@@ -8,10 +8,9 @@ of signals.  Note: unlike ./filters.py, this object has a torch dependency.
 
 
 import numpy as np
-import filters
+from . import filters
 import math
-
-
+import torch
 
 class Resampler:
 
@@ -74,43 +73,53 @@ class Resampler:
         # in_channels are both 1.
         self.forward_filter = torch.tensor(f).view(1, 1, f_len).to(self.dtype)
 
-        self.reverse_filter = self.forward_filter * N
+        self.backward_filter = self.forward_filter * N
 
         if full_padding:
             self.padding = f_len - 1
         else:
-            self.padding = (f_len - 1) / 2
+            self.padding = (f_len - 1) // 2
 
 
 
     def downsample(self, input):
         """
-        This downsamples the signal `input` and returns the
-        result.
+        This downsamples the signal `input` and returns the result.
+        Args:
+         input (torch.Tensor): A Tensor with shape (minibatch_size, signal_length),
+              and dtype torch.float64 if double_precision to constructor was true,
+              else torch.float32.
+
+        Return:
+            Returns a torch.Tensor with shape (minibatch_size, reduced_signal_length).
         """
-        if not istype(input, torch.Tensor):
+        if not isinstance(input, torch.Tensor):
             raise TypeError("Expected input to be torch.Tensor, got ",
                             type(input))
         if not (input.dtype == self.dtype):
             raise TypeError("Expected input tensor to have dtype {}, got {}".format(
                     self.dtype, input.dtype))
 
-        return torch.nn.functional.conv1d(input, self.filter,
+        # The squeeze and unsqueeze are to insert a dim for num_channels == 1.
+        return torch.nn.functional.conv1d(input.unsqueeze(1),
+                                          self.forward_filter,
                                           stride=self.N,
-                                          padding=self.padding)
+                                          padding=self.padding).squeeze(1)
 
     def upsample(self, input):
         """
         This upsamples the signal `input`.
         """
-        if not istype(input, torch.Tensor):
+        if not isinstance(input, torch.Tensor):
             raise TypeError("Expected input to be torch.Tensor, got ",
                             type(input))
         if not (input.dtype == self.dtype):
             raise TypeError("Expected input tensor to have dtype {}, got {}".format(
                     self.dtype, input.dtype))
 
-        return torch.nn.functional.conv_transpose1d(input, self.filter,
+        # The squeeze and unsqueeze are to insert a dim for num_channels == 1.
+        return torch.nn.functional.conv_transpose1d(input.unsqueeze(1),
+                                                    self.backward_filter,
                                                     stride=self.N,
-                                                    padding=self.padding)
+                                                    padding=self.padding).squeeze(1)
 
