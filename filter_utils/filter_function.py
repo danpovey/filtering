@@ -2,15 +2,15 @@ import math
 import numpy as np
 
 #
-# This is the filter-function that is output from ../filter_shape/main.py with D = 256, S = 6, T = 4.
+# This is the filter-function that is output from ../filter_shape/optimize_filter.py with D = 256, S = 6, T = 4.
 #
-# Some relevant output from ../filter_shape/main.py with S = 6:
+# Some relevant output from ../filter_shape/optimize_filter.py with S = 6:
 # Iter 2900: relative error in frequency gain is 0.00015374938993331817; integral of energy in banned frequency region is 0.00013761181521137081
 # f_penalty = 0.0+0.0021310990157878996; integral of abs(highpassed-signal) = 8.324605530421483e-06
 # F =  tensor([1.0001e+00, 1.0001e+00, 1.0001e+00,  ..., 2.9109e-06, 2.3796e-06,
 #         1.8225e-06])
 
-# Some relevant output from ../filter_shape/main.py with S = 10 (note:
+# Some relevant output from ../filter_shape/optimize_filter.py with S = 10 (note:
 #Iter 2400: loss = 0.0002991063477731235 = 0.00010634876963097998 + 0.00019275757814214353
 #Iter 2400: relative error in frequency gain is 7.242217090437826e-06; integral of energy in banned frequency region is 1.7746373966239925e-05
 #f_penalty = 0.0+0.0008506770552570358; integral of abs(highpassed-signal) = 3.322957247097796e-06

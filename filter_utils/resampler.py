@@ -123,3 +123,4 @@ class Resampler:
                                                     stride=self.N,
                                                     padding=self.padding).squeeze(1)
 
+
