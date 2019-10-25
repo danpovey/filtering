@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 # Add .. to the PYTHONPATH
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir))
 
-import filter_utils.resampler as r
+import lilfilter.resampler as r
 
 
 class TestResampler(unittest.TestCase):

@@ -6,14 +6,14 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     python_requires='>3.0.0',
-    name="filter_utils",
+    name="lilfilter",
     version="0.0.1",
     author="Daniel Povey",
     author_email="dpovey@gmail.com",
     description="Utilities for filtering signals",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/danpovey/filter_utils",
+    url="https://github.com/danpovey/filtering",
     packages=setuptools.find_packages(),
     install_requires=[
         'numpy', 'torch'

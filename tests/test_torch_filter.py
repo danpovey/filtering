@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 # Add .. to the PYTHONPATH
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir))
 
-import filter_utils.filters as F
-import filter_utils.torch_filter as T
+import lilfilter.filters as F
+import lilfilter.torch_filter as T
 
 
 class TestTorchFilter(unittest.TestCase):

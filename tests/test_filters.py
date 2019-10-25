@@ -6,7 +6,7 @@ import sys
 # Add .. to the PYTHONPATH
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir))
 
-from filter_utils.filters import *
+from lilfilter.filters import *
 
 
 class TestIsFilter(unittest.TestCase):

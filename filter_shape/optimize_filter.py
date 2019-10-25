@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
-import filter_utils.filters as filters
+import lilfilter.filters as filters
 import argparse
 
 
@@ -120,7 +120,7 @@ def __main__():
     # frequency of pi, which corresponds to a frequency of 0.5.  The sampling
     # rate in the time domain (the f_t values) is D, so the relative
     # frequency of the cutoff is 0.5 / D.  (This would be the
-    # arg to filter_utils.filters.high_pass_filter).  This will make an
+    # arg to lilfilter.filters.high_pass_filter).  This will make an
     # inconveniently wide filter, though.  We are already penalizing these high
     # energies explicitly in the fourier space, up to T * pi, so we only really
     # need to penalize in the time domain for frequencies above this; that means
