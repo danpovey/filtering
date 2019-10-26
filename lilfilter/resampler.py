@@ -82,7 +82,7 @@ class Resampler:
 
 
 
-pp    def downsample(self, input):
+    def downsample(self, input):
         """
         This downsamples the signal `input` and returns the result.
         Args:

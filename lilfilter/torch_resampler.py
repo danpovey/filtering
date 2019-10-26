@@ -54,6 +54,9 @@ class Resampler:
 
         """
         assert isinstance(input_sr, int) and isinstance(output_sr, int)
+        if input_sr == output_sr:
+            self.resample_type = 'trivial'
+            return
         d = gcd(input_sr, output_sr)
         input_sr, output_sr = input_sr // d, output_sr // d
 
@@ -145,13 +148,15 @@ class Resampler:
         # kernel_width).  If output_sr == 1, we can fold the input_sr into the
         # kernel_width (i.e. have just 1 input channel); this will make the
         # convolution faster and avoid unnecessary reshaping.
+
         if output_sr == 1:
-            self.reshaped = True
+            self.resample_type = 'integer_downsample'
             self.padding = input_sr * blocks_per_side
             assert weights.shape ==  (output_sr, input_sr, kernel_width)
             weights = torch.tensor(weights, dtype=dtype)
             self.weights = weights.transpose(1, 2).contiguous().view(1, 1, input_sr * kernel_width)
         else:
+            self.resample_type = 'general'
             self.reshaped = False
             self.padding = blocks_per_side
             self.weights = torch.tensor(weights, dtype=dtype)
@@ -172,8 +177,9 @@ class Resampler:
          where input_sr and output_sr are the corresponding constructor args,
          modified to remove any common factors.
         """
-
-        if self.reshaped:
+        if self.resample_type == 'trivial':
+            return in_data
+        elif self.resample_type == 'integer_downsample':
             (minibatch_size, seq_len) = in_data.shape
             # will be shape (minibatch_size, in_channels, seq_len) with in_channels == 1
             in_data = in_data.unsqueeze(1)
