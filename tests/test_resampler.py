@@ -51,11 +51,8 @@ class TestResampler(unittest.TestCase):
         # round trip process should preserve that energy.
 
         for N in range(2, 9):
-            a = r.Resampler(N, full_padding = True, num_zeros = 16)
+            a = r.Resampler(N, full_padding = True, num_zeros = 32)
 
-
-            x = a.forward_filter.squeeze(0).squeeze(0)
-            plt.plot(np.arange(len(x)), x.numpy())
 
             omega = math.pi / (1.5 * N)
             length = 500
@@ -85,7 +82,6 @@ class TestResampler(unittest.TestCase):
             print("Length of input signal is {}, downsampled {}, reconstructed {}".format(
                     signal.shape[-1], s.shape[-1], t.shape[-1]))
 
-
             min_len = min(t.shape[1], signal.shape[1])
             print("min_len = ", min_len)
 
@@ -93,7 +89,20 @@ class TestResampler(unittest.TestCase):
                   ((((signal[:,0:min_len] * t[:,0:min_len]).sum()**2) / ((t * t).sum() * (signal * signal).sum())) ** 0.5).item())
             print("Energy ratio = ", (t * t).sum().item() / (signal * signal).sum().item())
 
+            # check that sig1 and sig2 are the same.
+            sig1 = signal[:,0:min_len]
+            sig2 = t[:,0:min_len]
 
+            prod1 = (sig1 * sig1).sum()
+            prod2 = (sig2 * sig2).sum()
+            prod3 = (sig1 * sig2).sum()
+
+            print("The following numbers should be the same: {},{},{}".format(
+                prod1, prod2, prod3))
+
+            r1 = prod1 / prod2
+            r2 = prod2 / prod3
+            assert( abs(r1-1.0) < 0.001 and abs(r2-1.0) < 0.001)
 
 
 
