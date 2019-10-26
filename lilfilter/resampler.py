@@ -14,7 +14,7 @@ import torch
 
 class Resampler:
 
-    def __init__(self, N, num_zeros = 7,
+    def __init__(self, N, num_zeros = 32,
                  filter_cutoff_ratio = 0.95,
                  full_padding = False,
                  double_precision = False):
@@ -122,5 +122,3 @@ class Resampler:
                                                     self.backward_filter,
                                                     stride=self.N,
                                                     padding=self.padding).squeeze(1)
-
-

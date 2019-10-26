@@ -52,11 +52,16 @@ class TestResampler(unittest.TestCase):
 
         for N in range(2, 9):
             a = r.Resampler(N, full_padding = True, num_zeros = 4)
+
+
+            x = a.forward_filter.squeeze(0).squeeze(0)
+            plt.plot(np.arange(len(x)), x.numpy())
+
             omega = math.pi / (1.5 * N)
-            len = 500
-            #signal = torch.zeros((1, len), dtype=torch.float32)
-            signal = torch.cos(torch.arange(len, dtype=torch.float32)*omega).unsqueeze(0)
-            window_func = 0.5*torch.cos((torch.arange(len, dtype=torch.float32) - len/2) * (2*math.pi / len)) + 0.5
+            length = 500
+            #signal = torch.zeros((1, length), dtype=torch.float32)
+            signal = torch.cos(torch.arange(length, dtype=torch.float32)*omega).unsqueeze(0)
+            window_func = 0.5*torch.cos((torch.arange(length, dtype=torch.float32) - length/2) * (2*math.pi / length)) + 0.5
             signal = signal * window_func
 
             #print(window_func)
@@ -72,8 +77,8 @@ class TestResampler(unittest.TestCase):
             print("Energy of reconstructed signal is ", (t * t).sum().item())
 
 
-            plt.plot(torch.arange(len), signal.squeeze(0))
-            plt.plot(torch.arange(t.shape[-1]), t.squeeze(0))
+            plt.plot(torch.arange(length).numpy(), signal.squeeze(0).numpy())
+            plt.plot(torch.arange(t.shape[-1]).numpy(), t.squeeze(0).numpy())
             plt.show()
 
 
@@ -94,4 +99,3 @@ class TestResampler(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

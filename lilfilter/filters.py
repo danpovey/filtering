@@ -187,7 +187,7 @@ def low_pass_filter(cutoff, num_zeros = 5):
         else:
             # 2 * C *  math.sin(2 * math.pi * C * t) / (2 * pi * C * t)
             # simplifies to:
-            return math.sin(2 * math.pi * C * t) / (math.pi * t)
+            return 2.0 * C * math.sin(2 * math.pi * C * t) / (math.pi * t)
 
     def cosine_window(t):
         # The window will be nonzero on [-w..w].
