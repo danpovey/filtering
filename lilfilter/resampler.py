@@ -121,9 +121,6 @@ class Resampler:
                     self.dtype, input.dtype))
 
 
-        print("B:dims,strides are {}/{}, {}/{}".format(input.shape, input.stride(),
-                                                       self.backward_filter.shape, self.backward_filter.stride()))
-
         # The squeeze and unsqueeze are to insert a dim for num_channels == 1.
         return torch.nn.functional.conv_transpose1d(input.unsqueeze(1),
                                                     self.backward_filter,
