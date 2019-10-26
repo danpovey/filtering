@@ -51,7 +51,7 @@ class TestResampler(unittest.TestCase):
         # round trip process should preserve that energy.
 
         for N in range(2, 9):
-            a = r.Resampler(N, full_padding = True, num_zeros = 4)
+            a = r.Resampler(N, full_padding = True, num_zeros = 16)
 
 
             x = a.forward_filter.squeeze(0).squeeze(0)

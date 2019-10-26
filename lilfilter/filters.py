@@ -146,7 +146,7 @@ def gaussian_filter(stddev, stddevs_cutoff = 4.0):
     return ans
 
 
-def low_pass_filter(cutoff, num_zeros = 5):
+def low_pass_filter(cutoff, num_zeros = 16):
     """
     Returns a low-pass non-causal FIR filter with no phase shift.
 
@@ -186,8 +186,8 @@ def low_pass_filter(cutoff, num_zeros = 5):
             return  2.0 * C
         else:
             # 2 * C *  math.sin(2 * math.pi * C * t) / (2 * pi * C * t)
-            # simplifies to:
-            return 2.0 * C * math.sin(2 * math.pi * C * t) / (math.pi * t)
+            # simplifies to the following:
+            return  math.sin(2 * math.pi * C * t) / (math.pi * t)
 
     def cosine_window(t):
         # The window will be nonzero on [-w..w].

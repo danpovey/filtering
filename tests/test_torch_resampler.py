@@ -35,11 +35,17 @@ class TestResampler(unittest.TestCase):
 
         for pair in [ (2,3), (4,1), (5,4), (7,8) ]:
             n1, n2 = pair
+            print("n1,n2 = {},{}".format(n1, n2))
 
             a = r.Resampler(n1, n2, dtype=torch.float32)
+            x = a.weights
+            if n2 == 1:
+                print("Plotting")
+                plt.plot(np.arange(x.shape[-1]), x.squeeze(0).squeeze(0).numpy())
+                plt.show()
 
             nyquist = math.pi * min(n2 / n1, 1)
-            omega = 0.95 * nyquist  # enough less than nyquist that energy should be preserved.
+            omega = 0.85 * nyquist  # enough less than nyquist that energy should be preserved.
             length = 500
             signal = torch.cos(torch.arange(length, dtype=torch.float32)*omega).unsqueeze(0)
             window_func = 0.5*torch.cos((torch.arange(length, dtype=torch.float32) - length/2) * (2*math.pi / length)) + 0.5

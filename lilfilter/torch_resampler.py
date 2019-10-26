@@ -105,7 +105,6 @@ class Resampler:
         # which sign works.
 
 
-
         times = (
             np.arange(output_sr, dtype=np_dtype).reshape((output_sr, 1, 1)) / output_sr -
             np.arange(input_sr, dtype=np_dtype).reshape((1, input_sr, 1)) / input_sr -
@@ -140,8 +139,22 @@ class Resampler:
 
         self.input_sr = input_sr
         self.output_sr = output_sr
-        self.padding = blocks_per_side
-        self.weights = torch.tensor(weights, dtype=dtype)
+
+
+        # OK, at this point the dim of the weights is (output_sr, input_sr,
+        # kernel_width).  If output_sr == 1, we can fold the input_sr into the
+        # kernel_width (i.e. have just 1 input channel); this will make the
+        # convolution faster and avoid unnecessary reshaping.
+        if output_sr == 1:
+            self.reshaped = True
+            self.padding = input_sr * blocks_per_side
+            assert weights.shape ==  (output_sr, input_sr, kernel_width)
+            weights = torch.tensor(weights, dtype=dtype)
+            self.weights = weights.transpose(1, 2).contiguous().view(1, 1, input_sr * kernel_width)
+        else:
+            self.reshaped = False
+            self.padding = blocks_per_side
+            self.weights = torch.tensor(weights, dtype=dtype)
 
 
 
@@ -158,16 +171,27 @@ class Resampler:
          dimension (minibatch_size, (sequence_length//input_sr)*output_sr),
          where input_sr and output_sr are the corresponding constructor args,
          modified to remove any common factors.
-
-
         """
 
-        for x in [1]: #try:
+        if self.reshaped:
+            (minibatch_size, seq_len) = in_data.shape
+            # will be shape (minibatch_size, in_channels, seq_len) with in_channels == 1
+            in_data = in_data.unsqueeze(1)
+            out = torch.nn.functional.conv1d(in_data.contiguous(),
+                                             self.weights,
+                                             stride=self.input_sr,
+                                             padding=self.padding)
+            # shape will be (minibatch_size, out_channels = 1, seq_len);
+            # return as (minibatch_size, seq_len)
+            return out.squeeze(1)
+
+        else:
             # input.unsqueeze(1) changes dim from (minibatch_size, sequence_length) to
             # (minibatch_size, num_channels=1, sequence_length)
             # the final squeeze(1) removes the num_channels=1 axis
 
             # round the input length
+
 
             (minibatch_size, seq_len) = in_data.shape
             num_blocks = seq_len // self.input_sr
