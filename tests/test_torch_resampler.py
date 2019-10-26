@@ -38,11 +38,6 @@ class TestResampler(unittest.TestCase):
             print("n1,n2 = {},{}".format(n1, n2))
 
             a = r.Resampler(n1, n2, dtype=torch.float32)
-            x = a.weights
-            if n2 == 1:
-                print("Plotting")
-                plt.plot(np.arange(x.shape[-1]), x.squeeze(0).squeeze(0).numpy())
-                plt.show()
 
             nyquist = math.pi * min(n2 / n1, 1)
             omega = 0.85 * nyquist  # enough less than nyquist that energy should be preserved.

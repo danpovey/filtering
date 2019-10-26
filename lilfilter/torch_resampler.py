@@ -149,12 +149,20 @@ class Resampler:
         # kernel_width (i.e. have just 1 input channel); this will make the
         # convolution faster and avoid unnecessary reshaping.
 
+        assert weights.shape ==  (output_sr, input_sr, kernel_width)
         if output_sr == 1:
             self.resample_type = 'integer_downsample'
             self.padding = input_sr * blocks_per_side
-            assert weights.shape ==  (output_sr, input_sr, kernel_width)
             weights = torch.tensor(weights, dtype=dtype)
             self.weights = weights.transpose(1, 2).contiguous().view(1, 1, input_sr * kernel_width)
+        elif input_sr == 1:
+            # In this case we'll be doing conv_transpose, so we want the same weights that
+            # we would have if we wer *downsampling* by this factor-- i.e. as if input_sr,
+            # output_sr had been swapped.
+            self.resample_type = 'integer_upsample'
+            self.padding = output_sr * blocks_per_side
+            weights = torch.tensor(weights, dtype=dtype)
+            self.weights = weights.flip(2).transpose(0, 2).contiguous().view(1, 1, output_sr * kernel_width)
         else:
             self.resample_type = 'general'
             self.reshaped = False
@@ -183,22 +191,21 @@ class Resampler:
             (minibatch_size, seq_len) = in_data.shape
             # will be shape (minibatch_size, in_channels, seq_len) with in_channels == 1
             in_data = in_data.unsqueeze(1)
-            out = torch.nn.functional.conv1d(in_data.contiguous(),
+            out = torch.nn.functional.conv1d(in_data,
                                              self.weights,
                                              stride=self.input_sr,
                                              padding=self.padding)
             # shape will be (minibatch_size, out_channels = 1, seq_len);
             # return as (minibatch_size, seq_len)
             return out.squeeze(1)
-
+        elif self.resample_type == 'integer_upsample':
+            out = torch.nn.functional.conv_transpose1d(in_data.unsqueeze(1),
+                                                       self.weights,
+                                                       stride=self.output_sr,
+                                                       padding=self.padding)
+            return out.squeeze(1)
         else:
-            # input.unsqueeze(1) changes dim from (minibatch_size, sequence_length) to
-            # (minibatch_size, num_channels=1, sequence_length)
-            # the final squeeze(1) removes the num_channels=1 axis
-
-            # round the input length
-
-
+            assert self.resample_type == 'general'
             (minibatch_size, seq_len) = in_data.shape
             num_blocks = seq_len // self.input_sr
             if num_blocks == 0:
@@ -215,5 +222,3 @@ class Resampler:
                                              padding=self.padding)
             assert out.shape == (minibatch_size, self.output_sr, num_blocks)
             return out.transpose(1, 2).contiguous().view(minibatch_size, num_blocks * self.output_sr)
-#except Exception as e:
-#            print("Error: exception is {}".format(e))

@@ -71,7 +71,7 @@ class Resampler:
         # self.filter is a torch.Tensor whose dimension is interpreted
         # as (out_channels, in_channels, width) where out_channels and
         # in_channels are both 1.
-        self.forward_filter = torch.tensor(f).view(1, 1, f_len).to(self.dtype)
+        self.forward_filter = torch.tensor(f, dtype=self.dtype).view(1, 1, f_len)
 
         self.backward_filter = self.forward_filter * N
 
@@ -116,6 +116,10 @@ class Resampler:
         if not (input.dtype == self.dtype):
             raise TypeError("Expected input tensor to have dtype {}, got {}".format(
                     self.dtype, input.dtype))
+
+
+        print("B:dims,strides are {}/{}, {}/{}".format(input.shape, input.stride(),
+                                                       self.backward_filter.shape, self.backward_filter.stride()))
 
         # The squeeze and unsqueeze are to insert a dim for num_channels == 1.
         return torch.nn.functional.conv_transpose1d(input.unsqueeze(1),
