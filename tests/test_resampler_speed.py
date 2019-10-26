@@ -12,7 +12,6 @@ import librosa  # For comparison of speed
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir))
 
 import lilfilter.resampler as res
-import lilfilter.torch_resampler as tres
 
 
 class TestSpeed(unittest.TestCase):
@@ -22,18 +21,9 @@ class TestSpeed(unittest.TestCase):
 
         signal = torch.randn((2, 10000), dtype=torch.float32)
 
-        begin = time.perf_counter()
-        a = res.Resampler(2, num_zeros = 64)
-        for i in range(10):
-            b = a.downsample(signal)
-            c = a.upsample(b)
-            print("B:b.shape = {}, c.shape = {}".format(b.shape, c.shape))
 
-        print("our regular filter size = {}", a.backward_filter.shape)
-        print("Elapsed time for our resampler: {}".format(time.perf_counter() - begin))
-
-        r_down = tres.Resampler(2, 1, dtype=torch.float32, num_zeros = 64)
-        r_up = tres.Resampler(1, 2, dtype=torch.float32, num_zeros = 64)
+        r_down = res.Resampler(2, 1, dtype=torch.float32, num_zeros = 64)
+        r_up = res.Resampler(1, 2, dtype=torch.float32, num_zeros = 64)
         begin = time.perf_counter()
 
         print("our torch-filter filter size = {}", r_down.weights.shape)

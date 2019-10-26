@@ -49,7 +49,7 @@ class TestMultistreamer(unittest.TestCase):
         # Testing that the forward computation has the expected effect on
         # the energy of a sinusoid.
         #
-        # Note on why there is a fact of 1/(2*N) on the energy:
+        # Note on why there is a factor of 1/(2*N) on the energy:
         #  The factor of 1/N is because there are N times fewer points than
         #  the input.
         #
