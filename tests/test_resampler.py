@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 # Add .. to the PYTHONPATH
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir))
 
-import lilfilter.resampler as r
+import lilfilter
 
 
 class TestResampler(unittest.TestCase):
@@ -19,11 +19,11 @@ class TestResampler(unittest.TestCase):
 
         a = torch.randn((2, 500), dtype=torch.float32)
 
-        res = r.Resampler(5, 4, torch.float32)
+        res = lilfilter.Resampler(5, 4, torch.float32)
         b = res.resample(a)
         print("a.shape = {}, b.shape = {}".format(a.shape, b.shape))
 
-        res2 = r.Resampler(5, 4, torch.float64)
+        res2 = lilfilter.Resampler(5, 4, torch.float64)
         a = a.double()
         b = res2.resample(a)
         print("a.shape = {}, b.shape = {}".format(a.shape, b.shape))
@@ -37,7 +37,7 @@ class TestResampler(unittest.TestCase):
             n1, n2 = pair
             print("n1,n2 = {},{}".format(n1, n2))
 
-            a = r.Resampler(n1, n2, dtype=torch.float32)
+            a = lilfilter.Resampler(n1, n2, dtype=torch.float32)
 
             nyquist = math.pi * min(n2 / n1, 1)
             omega = 0.85 * nyquist  # enough less than nyquist that energy should be preserved.
@@ -49,9 +49,10 @@ class TestResampler(unittest.TestCase):
             input_energy = (signal * signal).sum().item()
             print("Energy of input signal is ", input_energy)
             s = a.resample(signal)
+            s2 = lilfilter.resample(signal, n1, n2)
+            assert torch.all(torch.eq(s, s2))
 
-
-            b = r.Resampler(n2, n1, dtype=torch.float32)
+            b = lilfilter.Resampler(n2, n1, dtype=torch.float32)
             t = b.resample(s)
 
             length = min(t.shape[1], signal.shape[1])

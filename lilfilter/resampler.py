@@ -35,16 +35,18 @@ class Resampler:
         based on torch.nn.functional.conv1d.
 
         Args:
-          input_sr:  The input sampling rate, AS A SMALL INTEGER..
+          input_sr:  The input sampling rate, AS AN INTEGER..
               does not have to be the real sampling rate but should
               have the correct ratio with output_sr.
-          output_sr:  The output sampling rate, AS A SMALL INTEGER.
+          output_sr:  The output sampling rate, AS AN INTEGER.
               It is the ratio with the input sampling rate that is
               important here.
           dtype:  The torch dtype to use for computations
           num_zeros: The number of zeros per side in the (sinc*hanning-window)
               filter function.  More is more accurate, but 64 is already
               quite a lot.
+          cutoff_ratio: The filter rolloff point as a fraction of the
+             Nyquist.
 
         You can think of this algorithm as dividing up the signals
         (input,output) into blocks where there are `input_sr` input
@@ -223,3 +225,39 @@ class Resampler:
                                              padding=self.padding)
             assert out.shape == (minibatch_size, self.output_sr, num_blocks)
             return out.transpose(1, 2).contiguous().view(minibatch_size, num_blocks * self.output_sr)
+
+def resample(data, input_sr, output_sr,
+             num_zeros = 64, cutoff_ratio = 0.95):
+    """
+    Resamples data; returns it as a numpy array with same dtype as the input
+    `data`.  Please see documentation for class Resampler for more details.
+
+    Args:
+        data:  A NumPy array or Torch tensor of shape
+             (minibatch_size_or_num_channels, signal_length),
+             and single or double-precision floating point
+             dtype.
+          input_sr:  The input sampling rate, AS AN INTEGER..
+              does not have to be the real sampling rate but should
+              have the correct ratio with output_sr.
+          output_sr:  The output sampling rate, AS AN INTEGER.
+              It is the ratio with the input sampling rate that is
+              important here.
+          num_zeros: The number of zeros per side in the (sinc*hanning-window)
+              filter function.  More is more accurate, but 64 is already
+              quite a lot.
+          cutoff_ratio: The filter rolloff point as a fraction of the
+             Nyquist.
+    """
+    if isinstance(data, np.ndarray):
+        numpy_input = True
+        data = torch.from_numpy(data)
+    else:
+        numpy_input = False
+    r = Resampler(input_sr, output_sr, data.dtype,
+                  num_zeros, cutoff_ratio)
+    out = r.resample(data)
+    if numpy_input:
+        out = out.numpy()
+    return out
+

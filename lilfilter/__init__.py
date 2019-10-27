@@ -1,3 +1,4 @@
 
 from . multistreamer import Multistreamer
-from . resampler import Resampler
+from . resampler import Resampler, resample
+
