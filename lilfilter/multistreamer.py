@@ -186,7 +186,7 @@ class Multistreamer:
         # 1, signal_length) where the 1 represents the number of input channels
         signal = signal.unsqueeze(1)
 
-        conv_output = torch.nn.functional.conv1d(signal, self.filter_forward,
+        conv_output = torch.nn.functional.conv1d(signal, (self.filter_forward).type_as(signal),
                                                  stride = self.N,
                                                  padding = self.padding)
         minibatch_size = conv_output.shape[0]
@@ -235,7 +235,7 @@ class Multistreamer:
         # Note: self.filter_backward is just self.filter_forward * 2N.
         signal = torch.nn.functional.conv_transpose1d(
             reshaped_split_signal,
-            self.filter_backward,
+            (self.filter_backward).type_as(reshaped_split_signal),
             stride = self.N,
             padding = self.padding)
 
