@@ -29,9 +29,9 @@ class TestLocalAmplitude(unittest.TestCase):
         print("b.shape = {}, c.shape = {}, d.shape = {}".format(b.shape, c.shape, d.shape))
         print("b sum = ", b.sum())
         print("partial sum = ", b[0,0,5,:].sum().item())
-        plt.plot(torch.arange(b.shape[-1]), b[0,0,5,:])
+        plt.plot(torch.arange(b.shape[-1]).numpy(), b[0,0,5,:].numpy())
         print("d sum = ", d.sum())
-        plt.plot(torch.arange(d.shape[-1]), d[0,5,:])
+        plt.plot(torch.arange(d.shape[-1]).numpy(), d[0,5,:].numpy())
         plt.show()
 
 

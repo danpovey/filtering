@@ -79,15 +79,7 @@ class LocalAmplitudeComputer:
 
 
         self.block_size = block_size
-        if block_size > 1:
-            # num_zeros = 4 is a lower-than-normal width for the FIR filter since there
-            # won't be frequencies near the Nyquist and we don't need a sharp cutoff.
-            # filter_cutoff_ratio = 9 is to avoid aliasing effects with this less-precise
-            # filter (default is 0.95).
-            self.resampler = resampler.Resampler(block_size, num_zeros = 4,
-                                                 filter_cutoff_ratio = 0.9,
-                                                 double_precision = double_precision)
-
+        assert block_size > 1
 
     def compute(self,
                 input):
@@ -142,7 +134,13 @@ class LocalAmplitudeComputer:
         smoothed_amplitudes = self.gaussian_filter.apply(summed_amplitudes)
         assert smoothed_amplitudes.shape == summed_amplitudes.shape
 
-        upsampled_amplitudes = self.resampler.upsample(smoothed_amplitudes)
+        # num_zeros = 4 is a lower-than-normal width for the FIR filter since there
+        # won't be frequencies near the Nyquist and we don't need a sharp cutoff.
+        # filter_cutoff_ratio = 9 is to avoid aliasing effects with this less-precise
+        # filter (default is 0.95).
+        self.resampler = resampler.Resampler(1, self.block_size, dtype = self.dtype, num_zeros = 4,
+                                             cutoff_ratio = 0.9)
+        upsampled_amplitudes = self.resampler.resample(smoothed_amplitudes)
         assert upsampled_amplitudes.shape[1] >= signal_length
 
 
